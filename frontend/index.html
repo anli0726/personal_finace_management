@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Personal Financial Tool</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+  <script src="main.js" type="module" defer></script>
+</head>
+
+<body data-api-base="http://localhost:8000">
+  <div class="app">
+    <header class="app-header">
+      <div>
+        <h1>Personal Financial Tool</h1>
+        <p>Model multiple scenarios and compare net worth / liquidity trends.</p>
+      </div>
+      <div class="status" id="status-banner"></div>
+    </header>
+
+    <main class="app-grid">
+      <section class="panel span-2">
+        <h2>Plan Basics</h2>
+        <div class="form-grid">
+          <label for="plan-name">Scenario Name</label>
+          <input id="plan-name" type="text" />
+
+          <label for="plan-start-year">Start Year</label>
+          <input id="plan-start-year" type="number" min="1900" max="2100" />
+
+          <label for="plan-years">Duration (years)</label>
+          <input id="plan-years" type="number" min="1" max="40" />
+
+          <label for="tax-rate">Tax Rate (%)</label>
+          <input id="tax-rate" type="number" min="0" max="60" step="0.5" />
+
+          <label for="freq">Granularity</label>
+          <select id="freq"></select>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Accounts / Assets / Debts</h2>
+          <button id="add-account-row" class="secondary-btn" type="button">Add Row</button>
+        </div>
+        <div id="accounts-table" class="table-wrapper"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Income Streams</h2>
+          <button id="add-income-row" class="secondary-btn" type="button">Add Row</button>
+        </div>
+        <div id="income-table" class="table-wrapper"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Expense Streams</h2>
+          <button id="add-spending-row" class="secondary-btn" type="button">Add Row</button>
+        </div>
+        <div id="spending-table" class="table-wrapper"></div>
+      </section>
+
+      <section class="panel span-2">
+        <div class="action-row">
+          <button id="submit-scenario" class="primary-btn" type="button">Add Scenario</button>
+          <button id="clear-scenarios" class="secondary-btn" type="button">Clear Scenarios</button>
+        </div>
+        <div class="scenario-summary">
+          <h3>Scenarios</h3>
+          <p id="scenario-list">None yet</p>
+        </div>
+      </section>
+
+      <section class="panel span-2">
+        <h2>Net Worth</h2>
+        <div class="chart-container">
+          <canvas id="networth-chart"></canvas>
+        </div>
+      </section>
+
+      <section class="panel span-2">
+        <h2>Liquid Assets</h2>
+        <div class="chart-container">
+          <canvas id="liquid-chart"></canvas>
+        </div>
+      </section>
+
+      <section class="panel span-2">
+        <h2>Aggregated Data</h2>
+        <div id="aggregate-table" class="aggregate-grid"></div>
+      </section>
+    </main>
+  </div>
+</body>
+
+</html>

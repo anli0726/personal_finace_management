@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+*.log
+build/
+dist/
+.DS_Store
+.idea/
+.vscode/
+.venv/
+user_data/scenarios.json
