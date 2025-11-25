@@ -197,7 +197,6 @@ const planStartYearInput = document.getElementById("plan-start-year");
 const planYearsInput = document.getElementById("plan-years");
 const taxRateInput = document.getElementById("tax-rate");
 const freqSelect = document.getElementById("freq");
-const planFreqSelect = document.getElementById("plan-freq");
 const planSelectInput = document.getElementById("saved-plans");
 const savePlanButton = document.getElementById("save-plan-btn");
 const saveNewPlanButton = document.getElementById("save-new-plan-btn");
@@ -289,17 +288,17 @@ function populatePlanDefaults(defaults) {
 }
 
 function initFreqOptions(options, defaultValue) {
-  const selects = [freqSelect, planFreqSelect].filter(Boolean);
-  selects.forEach((selectEl) => {
-    selectEl.innerHTML = "";
-    options.forEach((opt) => {
-      const option = document.createElement("option");
-      option.value = opt.value;
-      option.textContent = opt.label;
-      selectEl.appendChild(option);
-    });
-    selectEl.value = defaultValue;
+  if (!freqSelect) {
+    return;
+  }
+  freqSelect.innerHTML = "";
+  options.forEach((opt) => {
+    const option = document.createElement("option");
+    option.value = opt.value;
+    option.textContent = opt.label;
+    freqSelect.appendChild(option);
   });
+  freqSelect.value = defaultValue;
 }
 
 function generateMonths(startYear, years) {
@@ -773,9 +772,6 @@ function applyPlanPayload(plan) {
   }
   if (plan.freq) {
     currentFreq = plan.freq;
-    if (planFreqSelect) {
-      planFreqSelect.value = plan.freq;
-    }
     if (freqSelect) {
       freqSelect.value = plan.freq;
     }
@@ -1234,21 +1230,11 @@ function attachEventListeners() {
   document.getElementById("clear-scenarios").addEventListener("click", clearScenarios);
   planStartYearInput.addEventListener("input", refreshMonths);
   planYearsInput.addEventListener("input", refreshMonths);
-  const freqChangeHandler = (event) => {
-    currentFreq = event.target.value;
-    if (freqSelect && event.target !== freqSelect) {
-      freqSelect.value = currentFreq;
-    }
-    if (planFreqSelect && event.target !== planFreqSelect) {
-      planFreqSelect.value = currentFreq;
-    }
-    refreshScenarios();
-  };
   if (freqSelect) {
-    freqSelect.addEventListener("change", freqChangeHandler);
-  }
-  if (planFreqSelect) {
-    planFreqSelect.addEventListener("change", freqChangeHandler);
+    freqSelect.addEventListener("change", (event) => {
+      currentFreq = event.target.value;
+      refreshScenarios();
+    });
   }
   if (addPlanButton) {
     addPlanButton.addEventListener("click", handleAddPlan);
