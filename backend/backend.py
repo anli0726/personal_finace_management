@@ -24,11 +24,13 @@ from backend.data_model import (
 )
 from backend.engine.aggregate import aggregate_period
 from backend.engine.simulator import simulate_monthly
-from backend.engine.state import ScenarioState
+from backend.engine.state import LayoutState, PlanState, ScenarioState
 
 app = Flask(__name__)
 
 state = ScenarioState()
+plan_state = PlanState()
+layout_state = LayoutState()
 
 ACCOUNT_MODEL = AccountTableModel()
 INCOME_MODEL = IncomeTableModel()
@@ -113,7 +115,10 @@ def parse_cashflows(rows: list[dict], plan_start_year: int, flow_type: str) -> l
 
 
 def _is_nan(value: Any) -> bool:
-    return isinstance(value, float) and math.isnan(value)
+    try:
+        return not math.isfinite(value)
+    except (TypeError, ValueError):
+        return False
 
 
 def _sanitize_records(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -157,10 +162,11 @@ def _aggregated_payload(freq: str) -> Dict[str, Any]:
     if monthly_all.empty:
         return {"scenarios": state.list_names(), "data": [], "freq": freq}
     agg_df = aggregate_period(monthly_all, freq=freq)
+    records = _sanitize_records(agg_df.to_dict(orient="records"))
     return {
         "scenarios": state.list_names(),
         "freq": freq,
-        "data": agg_df.to_dict(orient="records"),
+        "data": records,
     }
 
 
@@ -214,6 +220,54 @@ def month_options():
     return jsonify({"months": months})
 
 
+@app.get("/api/plans")
+def list_saved_plans():
+    return jsonify({"plans": plan_state.list_names()})
+
+
+@app.get("/api/plans/<plan_name>")
+def get_plan(plan_name: str):
+    plan = plan_state.get(plan_name)
+    if not plan:
+        return jsonify({"error": "Plan not found."}), 404
+    return jsonify(plan)
+
+
+@app.post("/api/plans")
+def save_plan():
+    payload = request.get_json(silent=True) or {}
+    name = str(payload.get("name", "")).strip()
+    if not name:
+        return jsonify({"error": "Plan name is required."}), 400
+    plan_state.save(name, payload)
+    return jsonify({
+        "message": "Plan saved.",
+        "plans": plan_state.list_names(),
+        "plan": payload,
+    })
+
+
+@app.delete("/api/plans/<plan_name>")
+def delete_plan(plan_name: str):
+    plan_state.delete(plan_name)
+    return jsonify({"message": "Plan deleted.", "plans": plan_state.list_names()})
+
+
+@app.get("/api/layout")
+def get_layout():
+    return jsonify({"layout": layout_state.get()})
+
+
+@app.post("/api/layout")
+def save_layout_endpoint():
+    payload = request.get_json(silent=True) or {}
+    layout = payload.get("layout")
+    if not isinstance(layout, list):
+        return jsonify({"error": "Layout must be a list."}), 400
+    layout_state.save(layout)
+    return jsonify({"message": "Layout saved."})
+
+
 @app.get("/api/scenarios")
 def list_scenarios():
     freq = request.args.get("freq", "Q")
@@ -264,4 +318,4 @@ def clear_scenarios():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=8000)
+    app.run(debug=False, port=8000)

@@ -38,9 +38,11 @@ Open `http://localhost:4173` in a browser. By default the UI points to `http://l
 ### Workflow
 
 1. Fill in plan basics (name, start year, horizon, tax rate & frequency). The action buttons live on the same card.
-2. Enter account/income/spending rows (add/remove rows with the buttons). Drag column dividers or the lower-right handle to resize table columns/height inside each card.
-3. Click **Add Scenario** to simulate; charts + aggregated table update automatically and accumulate multiple scenarios.
-4. Use **Clear Scenarios** to wipe everything and start over.
+- Enter account/income/spending rows (add/remove rows with the buttons). Drag column dividers or the lower-right handle to resize table columns/height inside each card.
+- Click **Add Scenario** to simulate; charts + aggregated table update automatically and accumulate multiple scenarios.
+- Use **Clear Scenarios** to wipe everything and start over.
+- Save/load/delete named plans via the controls on the plan card; the definitions live locally in `user_data/plans.json`.
+- Adjust the dashboard layout (drag handles / resize corners) and click **Save Layout** to keep your preferred arrangement as the default (stored locally in `user_data/layout.json`).
 - Reorder dashboard cards via the "::" handle (dropping a card below the grid creates a new row) and resize panels from the bottom-right corner.
 
 The new UI uses Chart.js (via CDN) for the net-worth/liquidity plots and works against the REST API, so backend & frontend can evolve independently.

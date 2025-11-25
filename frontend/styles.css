@@ -207,6 +207,29 @@ body.is-gesturing {
   color: var(--text);
 }
 
+.plan-storage {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.plan-select-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.plan-select-row select {
+  flex: 1;
+  min-width: 0;
+  padding: 0.35rem 0.45rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--panel-border);
+  background: #12141a;
+  color: var(--text);
+}
+
 .table-wrapper {
   position: relative;
   overflow: auto;

@@ -21,7 +21,7 @@
     </header>
 
     <main class="app-grid">
-      <section class="panel span-2">
+      <section class="panel span-2" data-panel-id="plan">
         <h2>Plan Basics & Actions</h2>
         <div class="form-grid">
           <label for="plan-name">Scenario Name</label>
@@ -43,13 +43,25 @@
           <button id="submit-scenario" class="primary-btn" type="button">Add Scenario</button>
           <button id="clear-scenarios" class="secondary-btn" type="button">Clear Scenarios</button>
         </div>
+        <div class="plan-storage">
+          <div class="plan-storage-header">
+            <label for="saved-plans">Saved Plans</label>
+            <div class="plan-select-row">
+              <select id="saved-plans"></select>
+              <button id="load-plan-btn" class="secondary-btn" type="button">Load</button>
+              <button id="delete-plan-btn" class="secondary-btn" type="button">Delete</button>
+            </div>
+          </div>
+          <button id="save-plan-btn" class="secondary-btn" type="button">Save Current Plan</button>
+          <button id="save-layout-btn" class="secondary-btn" type="button">Save Layout</button>
+        </div>
         <div class="scenario-summary">
           <h3>Scenarios</h3>
           <p id="scenario-list">None yet</p>
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel" data-panel-id="accounts">
         <div class="panel-header">
           <h2>Accounts / Assets / Debts</h2>
           <button id="add-account-row" class="secondary-btn" type="button">Add Row</button>
@@ -57,7 +69,7 @@
         <div id="accounts-table" class="table-wrapper"></div>
       </section>
 
-      <section class="panel">
+      <section class="panel" data-panel-id="income">
         <div class="panel-header">
           <h2>Income Streams</h2>
           <button id="add-income-row" class="secondary-btn" type="button">Add Row</button>
@@ -65,7 +77,7 @@
         <div id="income-table" class="table-wrapper"></div>
       </section>
 
-      <section class="panel">
+      <section class="panel" data-panel-id="spending">
         <div class="panel-header">
           <h2>Expense Streams</h2>
           <button id="add-spending-row" class="secondary-btn" type="button">Add Row</button>
@@ -73,21 +85,21 @@
         <div id="spending-table" class="table-wrapper"></div>
       </section>
 
-      <section class="panel span-2">
+      <section class="panel span-2" data-panel-id="networth">
         <h2>Net Worth</h2>
         <div class="chart-container">
           <canvas id="networth-chart"></canvas>
         </div>
       </section>
 
-      <section class="panel span-2">
+      <section class="panel span-2" data-panel-id="liquid">
         <h2>Liquid Assets</h2>
         <div class="chart-container">
           <canvas id="liquid-chart"></canvas>
         </div>
       </section>
 
-      <section class="panel span-2">
+      <section class="panel span-2" data-panel-id="aggregate">
         <h2>Aggregated Data</h2>
         <div id="aggregate-table" class="aggregate-grid"></div>
       </section>

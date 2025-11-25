@@ -164,6 +164,8 @@ let backendAvailable = true;
 let gridContainer = null;
 let dragState = null;
 let resizeState = null;
+let savedPlanNames = [];
+const PANEL_LAYOUT_KEY = "panelLayout";
 const currencyFormat = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -195,6 +197,11 @@ const planStartYearInput = document.getElementById("plan-start-year");
 const planYearsInput = document.getElementById("plan-years");
 const taxRateInput = document.getElementById("tax-rate");
 const freqSelect = document.getElementById("freq");
+const planSelectInput = document.getElementById("saved-plans");
+const savePlanButton = document.getElementById("save-plan-btn");
+const loadPlanButton = document.getElementById("load-plan-btn");
+const deletePlanButton = document.getElementById("delete-plan-btn");
+const saveLayoutButton = document.getElementById("save-layout-btn");
 
 async function fetchJSON(path, options = {}) {
   try {
@@ -215,10 +222,23 @@ async function fetchJSON(path, options = {}) {
       throw new Error(errorMessage);
     }
     if (response.status === 204) {
+      backendAvailable = true;
       return {};
     }
-    return response.json();
+    const text = await response.text();
+    let data = {};
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch (err) {
+        backendAvailable = false;
+        throw new Error(`Invalid JSON response: ${err.message}`);
+      }
+    }
+    backendAvailable = true;
+    return data;
   } catch (error) {
+    backendAvailable = false;
     throw new Error(error.message || "Unable to reach backend.");
   }
 }
@@ -342,6 +362,7 @@ function stopPanelDrag(event) {
   window.removeEventListener("pointerup", stopPanelDrag);
   window.removeEventListener("pointercancel", stopPanelDrag);
   dragState = null;
+  persistPanelLayout(false);
 }
 
 function enablePanelResize(panel, handle) {
@@ -392,6 +413,7 @@ function stopPanelResize(event) {
   window.removeEventListener("pointerup", stopPanelResize);
   window.removeEventListener("pointercancel", stopPanelResize);
   resizeState = null;
+  persistPanelLayout(false);
 }
 
 function createTableManager(containerId, model) {
@@ -652,6 +674,10 @@ function createInput(col, rowIndex, value) {
       state.monthOptions = months ?? [];
       renderBody();
     },
+    setRows(newRows) {
+      state.rows = (newRows || []).map(ensureRowShape);
+      renderBody();
+    },
   };
 }
 
@@ -663,6 +689,231 @@ function collectPlanValues() {
     taxRate: parseFloat(taxRateInput.value) || 0,
     freq: currentFreq,
   };
+}
+
+function buildPlanPayload() {
+  const base = collectPlanValues();
+  return {
+    ...base,
+    accounts: accountsTable.getRows(),
+    incomes: incomeTable.getRows(),
+    spendings: spendingTable.getRows(),
+  };
+}
+
+function applyPlanPayload(plan) {
+  if (!plan) {
+    return;
+  }
+  if (plan.name) {
+    planNameInput.value = plan.name;
+  }
+  if (plan.startYear !== undefined) {
+    planStartYearInput.value = plan.startYear;
+  }
+  if (plan.years !== undefined) {
+    planYearsInput.value = plan.years;
+  }
+  if (plan.taxRate !== undefined) {
+    taxRateInput.value = plan.taxRate;
+  }
+  if (plan.freq) {
+    currentFreq = plan.freq;
+    freqSelect.value = plan.freq;
+  }
+  accountsTable.setRows(plan.accounts || []);
+  incomeTable.setRows(plan.incomes || []);
+  spendingTable.setRows(plan.spendings || []);
+  refreshMonths();
+}
+
+async function fetchSavedPlans() {
+  if (!planSelectInput) {
+    return;
+  }
+  try {
+    const data = await fetchJSON("/api/plans");
+    updatePlanSelect(data.plans || []);
+  } catch (error) {
+    console.warn("Unable to load saved plans:", error);
+  }
+}
+
+function updatePlanSelect(planNames, preferred) {
+  if (!planSelectInput) {
+    return;
+  }
+  savedPlanNames = planNames;
+  const current = preferred ?? planSelectInput.value;
+  planSelectInput.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Select a plan";
+  planSelectInput.appendChild(placeholder);
+  planNames.forEach((name) => {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    planSelectInput.appendChild(option);
+  });
+  if (current && planNames.includes(current)) {
+    planSelectInput.value = current;
+  } else {
+    planSelectInput.value = "";
+  }
+}
+
+async function handleSavePlan() {
+  if (!planSelectInput) {
+    return;
+  }
+  try {
+    const payload = buildPlanPayload();
+    const response = await fetchJSON("/api/plans", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    updatePlanSelect(response.plans || [], payload.name);
+    if (response.plan) {
+      applyPlanPayload(response.plan);
+    }
+    setStatus("Plan saved.", "success");
+  } catch (error) {
+    setStatus(error.message, "error");
+  }
+}
+
+async function handleLoadPlan() {
+  if (!planSelectInput || !planSelectInput.value) {
+    setStatus("Select a saved plan to load.", "error");
+    return;
+  }
+  try {
+    const plan = await fetchJSON(`/api/plans/${encodeURIComponent(planSelectInput.value)}`);
+    applyPlanPayload(plan);
+    setStatus(`Loaded plan "${planSelectInput.value}".`, "success");
+    if (backendAvailable) {
+      const scenarioPayload = buildPlanPayload();
+      const data = await fetchJSON("/api/scenarios", {
+        method: "POST",
+        body: JSON.stringify(scenarioPayload),
+      });
+      renderCharts(data);
+    }
+  } catch (error) {
+    setStatus(error.message, "error");
+  }
+}
+
+async function handleDeletePlan() {
+  if (!planSelectInput || !planSelectInput.value) {
+    setStatus("Select a saved plan to delete.", "error");
+    return;
+  }
+  const name = planSelectInput.value;
+  try {
+    const response = await fetchJSON(`/api/plans/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    });
+    updatePlanSelect(response.plans || []);
+    setStatus(`Deleted plan "${name}".`, "success");
+  } catch (error) {
+    setStatus(error.message, "error");
+  }
+}
+
+function capturePanelLayout() {
+  if (!gridContainer) {
+    return [];
+  }
+  const panels = Array.from(gridContainer.querySelectorAll(".panel"));
+  return panels.map((panel, index) => ({
+    id: panel.dataset.panelId || `panel-${index}`,
+    order: index,
+    width: panel.style.width || "",
+    height: panel.style.height || "",
+    custom: panel.classList.contains("panel-custom-size"),
+  }));
+}
+
+function applyPanelLayout(layout) {
+  if (!gridContainer || !Array.isArray(layout) || layout.length === 0) {
+    return;
+  }
+  const lookup = new Map();
+  layout.forEach((item, idx) => {
+    lookup.set(item.id, { ...item, order: typeof item.order === "number" ? item.order : idx });
+  });
+
+  const panels = Array.from(gridContainer.querySelectorAll(".panel"));
+  panels
+    .sort((a, b) => {
+      const aId = a.dataset.panelId;
+      const bId = b.dataset.panelId;
+      const aOrder = lookup.has(aId) ? lookup.get(aId).order : Number.MAX_SAFE_INTEGER;
+      const bOrder = lookup.has(bId) ? lookup.get(bId).order : Number.MAX_SAFE_INTEGER;
+      return aOrder - bOrder;
+    })
+    .forEach((panel) => gridContainer.appendChild(panel));
+
+  layout.forEach((item) => {
+    const panel = gridContainer.querySelector(`[data-panel-id="${item.id}"]`);
+    if (!panel) {
+      return;
+    }
+    panel.style.width = item.width || "";
+    panel.style.height = item.height || "";
+    if (item.width || item.height || item.custom) {
+      panel.classList.add("panel-custom-size");
+    } else {
+      panel.classList.remove("panel-custom-size");
+    }
+  });
+}
+
+function persistPanelLayout(remote = false) {
+  const layout = capturePanelLayout();
+  try {
+    localStorage.setItem(PANEL_LAYOUT_KEY, JSON.stringify(layout));
+  } catch (error) {
+    console.warn("Failed to store layout locally:", error);
+  }
+  if (remote && backendAvailable) {
+    fetchJSON("/api/layout", {
+      method: "POST",
+      body: JSON.stringify({ layout }),
+    })
+      .then(() => setStatus("Layout saved.", "success"))
+      .catch((error) => {
+        console.warn("Failed to save layout remotely:", error);
+        setStatus(error.message, "error");
+      });
+  }
+}
+
+async function loadPanelLayout() {
+  let layout = null;
+  if (backendAvailable) {
+    try {
+      const data = await fetchJSON("/api/layout");
+      layout = data.layout || null;
+    } catch (error) {
+      console.warn("Failed to load layout from backend:", error);
+    }
+  }
+  if (!layout || !layout.length) {
+    try {
+      const stored = localStorage.getItem(PANEL_LAYOUT_KEY);
+      if (stored) {
+        layout = JSON.parse(stored);
+      }
+    } catch (error) {
+      console.warn("Failed to parse stored layout:", error);
+    }
+  }
+  if (layout && layout.length) {
+    applyPanelLayout(layout);
+  }
 }
 
 function renderScenarioList(names) {
@@ -843,13 +1094,14 @@ async function submitScenario() {
   }
   setStatus("Running simulation...");
   try {
-    const planValues = collectPlanValues();
-    const payload = {
-      ...planValues,
-      accounts: accountsTable.getRows(),
-      incomes: incomeTable.getRows(),
-      spendings: spendingTable.getRows(),
-    };
+    const payload = buildPlanPayload();
+    if (!savedPlanNames.includes(payload.name)) {
+      await fetchJSON("/api/plans", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      await fetchSavedPlans();
+    }
     const data = await fetchJSON("/api/scenarios", {
       method: "POST",
       body: JSON.stringify(payload),
@@ -894,6 +1146,18 @@ function attachEventListeners() {
     currentFreq = event.target.value;
     refreshScenarios();
   });
+  if (savePlanButton) {
+    savePlanButton.addEventListener("click", handleSavePlan);
+  }
+  if (loadPlanButton) {
+    loadPlanButton.addEventListener("click", handleLoadPlan);
+  }
+  if (deletePlanButton) {
+    deletePlanButton.addEventListener("click", handleDeletePlan);
+  }
+  if (saveLayoutButton) {
+    saveLayoutButton.addEventListener("click", () => persistPanelLayout(true));
+  }
 }
 
 async function bootstrap() {
@@ -915,6 +1179,8 @@ async function bootstrap() {
   spendingTable = createTableManager("spending-table", schema.spendings);
   attachEventListeners();
   refreshMonths();
+  await loadPanelLayout();
+  await fetchSavedPlans();
   if (backendAvailable) {
     try {
       await refreshScenarios();
