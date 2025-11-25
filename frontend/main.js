@@ -3,6 +3,9 @@ const API_BASE =
   document.body?.dataset?.apiBase ??
   "http://localhost:8000";
 
+const MIN_PANEL_WIDTH = 280;
+const MIN_PANEL_HEIGHT = 200;
+
 const FALLBACK_SCHEMA = {
   planDefaults: {
     name: "MyPlan",
@@ -158,6 +161,33 @@ let spendingTable;
 let netWorthChart;
 let liquidChart;
 let backendAvailable = true;
+let gridContainer = null;
+let dragState = null;
+let resizeState = null;
+const currencyFormat = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+function normalizeCurrencyValue(value) {
+  if (value === null || value === undefined) {
+    return 0;
+  }
+  if (typeof value === "string") {
+    const cleaned = value.replace(/,/g, "");
+    const parsed = Number(cleaned);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  const num = Number(value);
+  if (Number.isFinite(num)) {
+    return num;
+  }
+  return 0;
+}
 
 const statusBanner = document.getElementById("status-banner");
 const planNameInput = document.getElementById("plan-name");
@@ -232,20 +262,179 @@ function generateMonths(startYear, years) {
   return months;
 }
 
+function initPanelInteractivity() {
+  gridContainer = document.querySelector(".app-grid");
+  if (!gridContainer) {
+    return;
+  }
+  const panels = gridContainer.querySelectorAll(".panel");
+  panels.forEach((panel) => {
+    if (panel.dataset.interactive === "true") {
+      return;
+    }
+    panel.dataset.interactive = "true";
+    const dragHandle = document.createElement("button");
+    dragHandle.type = "button";
+    dragHandle.className = "panel-handle";
+    dragHandle.title = "Drag to move section";
+    dragHandle.setAttribute("aria-label", "Drag section");
+    dragHandle.textContent = "::";
+    panel.appendChild(dragHandle);
+
+    const resizeHandle = document.createElement("div");
+    resizeHandle.className = "panel-resize-handle";
+    resizeHandle.title = "Drag to resize section";
+    panel.appendChild(resizeHandle);
+
+    enablePanelDrag(panel, dragHandle);
+    enablePanelResize(panel, resizeHandle);
+  });
+}
+
+function enablePanelDrag(panel, handle) {
+  handle.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    dragState = {
+      panel,
+      handle,
+      pointerId: event.pointerId,
+    };
+    panel.classList.add("dragging");
+    document.body.classList.add("is-gesturing");
+    handle.setPointerCapture(event.pointerId);
+    window.addEventListener("pointermove", onPanelDragMove);
+    window.addEventListener("pointerup", stopPanelDrag);
+    window.addEventListener("pointercancel", stopPanelDrag);
+  });
+}
+
+function onPanelDragMove(event) {
+  if (!dragState || event.pointerId !== dragState.pointerId) {
+    return;
+  }
+  const hovered = document.elementFromPoint(event.clientX, event.clientY);
+  const targetPanel = hovered?.closest(".panel");
+  const containerRect = gridContainer.getBoundingClientRect();
+
+  if (!targetPanel || targetPanel === dragState.panel || !gridContainer.contains(targetPanel)) {
+    if (event.clientY > containerRect.bottom - 20) {
+      gridContainer.appendChild(dragState.panel);
+    }
+    return;
+  }
+  const rect = targetPanel.getBoundingClientRect();
+  const shouldInsertBefore = event.clientY < rect.top + rect.height / 2;
+  if (shouldInsertBefore) {
+    gridContainer.insertBefore(dragState.panel, targetPanel);
+  } else {
+    gridContainer.insertBefore(dragState.panel, targetPanel.nextElementSibling);
+  }
+}
+
+function stopPanelDrag(event) {
+  if (!dragState || event.pointerId !== dragState.pointerId) {
+    return;
+  }
+  dragState.handle.releasePointerCapture(event.pointerId);
+  dragState.panel.classList.remove("dragging");
+  document.body.classList.remove("is-gesturing");
+  window.removeEventListener("pointermove", onPanelDragMove);
+  window.removeEventListener("pointerup", stopPanelDrag);
+  window.removeEventListener("pointercancel", stopPanelDrag);
+  dragState = null;
+}
+
+function enablePanelResize(panel, handle) {
+  handle.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    const rect = panel.getBoundingClientRect();
+    resizeState = {
+      panel,
+      handle,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startWidth: rect.width,
+      startHeight: rect.height,
+    };
+    panel.classList.add("resizing");
+    document.body.classList.add("is-gesturing");
+    handle.setPointerCapture(event.pointerId);
+    window.addEventListener("pointermove", onPanelResizeMove);
+    window.addEventListener("pointerup", stopPanelResize);
+    window.addEventListener("pointercancel", stopPanelResize);
+  });
+}
+
+function onPanelResizeMove(event) {
+  if (!resizeState || event.pointerId !== resizeState.pointerId) {
+    return;
+  }
+  const deltaX = event.clientX - resizeState.startX;
+  const deltaY = event.clientY - resizeState.startY;
+  const newWidth = Math.max(MIN_PANEL_WIDTH, resizeState.startWidth + deltaX);
+  const newHeight = Math.max(MIN_PANEL_HEIGHT, resizeState.startHeight + deltaY);
+  const panel = resizeState.panel;
+  panel.style.flex = "0 0 auto";
+  panel.style.width = `${newWidth}px`;
+  panel.style.height = `${newHeight}px`;
+  panel.classList.add("panel-custom-size");
+}
+
+function stopPanelResize(event) {
+  if (!resizeState || event.pointerId !== resizeState.pointerId) {
+    return;
+  }
+  resizeState.handle.releasePointerCapture(event.pointerId);
+  resizeState.panel.classList.remove("resizing");
+  document.body.classList.remove("is-gesturing");
+  window.removeEventListener("pointermove", onPanelResizeMove);
+  window.removeEventListener("pointerup", stopPanelResize);
+  window.removeEventListener("pointercancel", stopPanelResize);
+  resizeState = null;
+}
+
 function createTableManager(containerId, model) {
   const container = document.getElementById(containerId);
+  if (!container) {
+    throw new Error(`Missing container for ${containerId}`);
+  }
   const table = document.createElement("table");
+  const colgroup = document.createElement("colgroup");
   const thead = document.createElement("thead");
   const tbody = document.createElement("tbody");
+  container.innerHTML = "";
+  table.appendChild(colgroup);
   table.appendChild(thead);
   table.appendChild(tbody);
-  container.innerHTML = "";
   container.appendChild(table);
+  const tableResizeHandle = document.createElement("div");
+  tableResizeHandle.className = "table-resize-handle";
+  container.appendChild(tableResizeHandle);
 
   const state = {
     rows: model.defaults.map((row) => ({ ...row })),
     monthOptions: [],
+    colWidths: [],
   };
+  let columnResizeState = null;
+  let tableResizeState = null;
+
+  const baseWidth = Math.max(120, Math.floor(((container.clientWidth || 640) - 32) / model.columns.length));
+  state.colWidths = model.columns.map(() => baseWidth);
+
+  function renderColgroup() {
+    colgroup.innerHTML = "";
+    state.colWidths.forEach((width) => {
+      const col = document.createElement("col");
+      col.style.width = `${width}px`;
+      colgroup.appendChild(col);
+    });
+    const actionsCol = document.createElement("col");
+    actionsCol.style.width = "110px";
+    colgroup.appendChild(actionsCol);
+  }
+  renderColgroup();
 
   function ensureRowShape(row = {}) {
     const shaped = {};
@@ -260,9 +449,17 @@ function createTableManager(containerId, model) {
 
   function renderHeader() {
     const headerRow = document.createElement("tr");
-    model.columns.forEach((col) => {
+    model.columns.forEach((col, colIndex) => {
       const th = document.createElement("th");
-      th.textContent = col.label;
+      const labelSpan = document.createElement("span");
+      labelSpan.textContent = col.label;
+      th.appendChild(labelSpan);
+      if (colIndex < model.columns.length - 1) {
+        const resizer = document.createElement("span");
+        resizer.className = "col-resizer";
+        resizer.addEventListener("pointerdown", (event) => startColumnResize(event, colIndex, resizer));
+        th.appendChild(resizer);
+      }
       headerRow.appendChild(th);
     });
     const actionsTh = document.createElement("th");
@@ -273,12 +470,87 @@ function createTableManager(containerId, model) {
     thead.appendChild(headerRow);
   }
 
+  function startColumnResize(event, colIndex, resizerEl) {
+    event.preventDefault();
+    columnResizeState = {
+      colIndex,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startWidth: state.colWidths[colIndex],
+      resizer: resizerEl,
+    };
+    resizerEl.classList.add("active");
+    resizerEl.setPointerCapture(event.pointerId);
+    window.addEventListener("pointermove", onColumnResizeMove);
+    window.addEventListener("pointerup", stopColumnResize);
+    window.addEventListener("pointercancel", stopColumnResize);
+  }
+
+  function onColumnResizeMove(event) {
+    if (!columnResizeState || event.pointerId !== columnResizeState.pointerId) {
+      return;
+    }
+    const deltaX = event.clientX - columnResizeState.startX;
+    const newWidth = Math.max(90, columnResizeState.startWidth + deltaX);
+    state.colWidths[columnResizeState.colIndex] = newWidth;
+    renderColgroup();
+  }
+
+  function stopColumnResize(event) {
+    if (!columnResizeState || event.pointerId !== columnResizeState.pointerId) {
+      return;
+    }
+    columnResizeState.resizer.releasePointerCapture(event.pointerId);
+    columnResizeState.resizer.classList.remove("active");
+    window.removeEventListener("pointermove", onColumnResizeMove);
+    window.removeEventListener("pointerup", stopColumnResize);
+    window.removeEventListener("pointercancel", stopColumnResize);
+    columnResizeState = null;
+  }
+
+  function startTableResize(event) {
+    event.preventDefault();
+    const rect = container.getBoundingClientRect();
+    container.style.maxHeight = `${rect.height}px`;
+    tableResizeState = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      startHeight: rect.height,
+    };
+    tableResizeHandle.setPointerCapture(event.pointerId);
+    window.addEventListener("pointermove", onTableResizeMove);
+    window.addEventListener("pointerup", stopTableResize);
+    window.addEventListener("pointercancel", stopTableResize);
+  }
+
+  function onTableResizeMove(event) {
+    if (!tableResizeState || event.pointerId !== tableResizeState.pointerId) {
+      return;
+    }
+    const deltaY = event.clientY - tableResizeState.startY;
+    const newHeight = Math.max(200, tableResizeState.startHeight + deltaY);
+    container.style.maxHeight = `${newHeight}px`;
+  }
+
+  function stopTableResize(event) {
+    if (!tableResizeState || event.pointerId !== tableResizeState.pointerId) {
+      return;
+    }
+    tableResizeHandle.releasePointerCapture(event.pointerId);
+    window.removeEventListener("pointermove", onTableResizeMove);
+    window.removeEventListener("pointerup", stopTableResize);
+    window.removeEventListener("pointercancel", stopTableResize);
+    tableResizeState = null;
+  }
+
+  tableResizeHandle.addEventListener("pointerdown", startTableResize);
+
   function handleChange(rowIndex, field, value) {
     state.rows[rowIndex][field] = value;
   }
 
-  function createInput(col, rowIndex, value) {
-    if (col.kind === "select") {
+function createInput(col, rowIndex, value) {
+  if (col.kind === "select") {
       const select = document.createElement("select");
       const opts = (col.options && col.options.length ? col.options : state.monthOptions) ?? [];
       const placeholder = document.createElement("option");
@@ -294,21 +566,37 @@ function createTableManager(containerId, model) {
       select.value = value ?? "";
       select.addEventListener("change", (event) => handleChange(rowIndex, col.field, event.target.value));
       return select;
-    }
-    const input = document.createElement("input");
-    input.type = col.kind === "number" ? "number" : "text";
-    if (col.kind === "number") {
-      if (col.min !== null && col.min !== undefined) {
-        input.min = col.min;
-      }
-      if (col.step) {
-        input.step = col.step;
-      }
-    }
-    input.value = value ?? "";
-    input.addEventListener("input", (event) => handleChange(rowIndex, col.field, event.target.value));
-    return input;
   }
+  const input = document.createElement("input");
+  const labelLower = col.label.toLowerCase();
+  const isCurrency =
+    labelLower.includes("amount") ||
+    labelLower.includes("principal") ||
+    labelLower.includes("usd");
+  input.type = col.kind === "number" ? "number" : "text";
+  if (col.kind === "number") {
+    if (col.min !== null && col.min !== undefined) {
+      input.min = col.min;
+    }
+    if (col.step) {
+      input.step = col.step;
+    }
+  }
+  input.value = value ?? "";
+  input.addEventListener("input", (event) => handleChange(rowIndex, col.field, event.target.value));
+  if (isCurrency) {
+    const wrapper = document.createElement("label");
+    wrapper.className = "currency-input";
+    const prefix = document.createElement("span");
+    prefix.textContent = "$";
+    input.step = input.step || 0.01;
+    input.min = input.min || 0;
+    wrapper.appendChild(prefix);
+    wrapper.appendChild(input);
+    return wrapper;
+  }
+  return input;
+}
 
   function renderBody() {
     tbody.innerHTML = "";
@@ -450,6 +738,15 @@ function updateLineChart(chartRef, canvasId, config, title) {
             display: true,
             text: title,
           },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const label = ctx.dataset.label || "";
+                const formatted = currencyFormat.format(normalizeCurrencyValue(ctx.parsed.y));
+                return `${label ? `${label}: ` : ""}${formatted}`;
+              },
+            },
+          },
         },
         scales: {
           x: {
@@ -457,7 +754,7 @@ function updateLineChart(chartRef, canvasId, config, title) {
           },
           y: {
             ticks: {
-              callback: (value) => `$${Number(value).toLocaleString()}`,
+              callback: (value) => currencyFormat.format(normalizeCurrencyValue(value)),
             },
           },
         },
@@ -489,12 +786,14 @@ function renderAggregateTable(records) {
     </tr>`;
   const tbody = document.createElement("tbody");
   records.forEach((record) => {
+    const net = normalizeCurrencyValue(record.NetWorth);
+    const liquid = normalizeCurrencyValue(record.Liquid);
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${record.Scenario}</td>
       <td>${record.Period}</td>
-      <td>${Number(record.NetWorth || 0).toLocaleString()}</td>
-      <td>${Number(record.Liquid || 0).toLocaleString()}</td>
+      <td>${currencyFormat.format(net)}</td>
+      <td>${currencyFormat.format(liquid)}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -504,10 +803,19 @@ function renderAggregateTable(records) {
 }
 
 function renderCharts(payload) {
+  const normalized = (payload.data || []).map((record) => {
+    const net = Math.floor(normalizeCurrencyValue(record.NetWorth) * 100) / 100;
+    const liquid = Math.floor(normalizeCurrencyValue(record.Liquid) * 100) / 100;
+    return {
+      ...record,
+      NetWorth: net,
+      Liquid: liquid,
+    };
+  });
   renderScenarioList(payload.scenarios || []);
-  renderAggregateTable(payload.data || []);
-  const netCfg = prepareSeries(payload.data, "NetWorth");
-  const liqCfg = prepareSeries(payload.data, "Liquid");
+  renderAggregateTable(normalized);
+  const netCfg = prepareSeries(normalized, "NetWorth");
+  const liqCfg = prepareSeries(normalized, "Liquid");
   netWorthChart = updateLineChart(netWorthChart, "networth-chart", netCfg, `Net Worth (${payload.freq})`);
   liquidChart = updateLineChart(liquidChart, "liquid-chart", liqCfg, `Liquid Assets (${payload.freq})`);
 }
@@ -589,6 +897,7 @@ function attachEventListeners() {
 }
 
 async function bootstrap() {
+  initPanelInteractivity();
   setStatus("Loading models...");
   try {
     schema = await fetchJSON("/api/schema");

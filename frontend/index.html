@@ -22,7 +22,7 @@
 
     <main class="app-grid">
       <section class="panel span-2">
-        <h2>Plan Basics</h2>
+        <h2>Plan Basics & Actions</h2>
         <div class="form-grid">
           <label for="plan-name">Scenario Name</label>
           <input id="plan-name" type="text" />
@@ -38,6 +38,14 @@
 
           <label for="freq">Granularity</label>
           <select id="freq"></select>
+        </div>
+        <div class="action-row">
+          <button id="submit-scenario" class="primary-btn" type="button">Add Scenario</button>
+          <button id="clear-scenarios" class="secondary-btn" type="button">Clear Scenarios</button>
+        </div>
+        <div class="scenario-summary">
+          <h3>Scenarios</h3>
+          <p id="scenario-list">None yet</p>
         </div>
       </section>
 
@@ -63,17 +71,6 @@
           <button id="add-spending-row" class="secondary-btn" type="button">Add Row</button>
         </div>
         <div id="spending-table" class="table-wrapper"></div>
-      </section>
-
-      <section class="panel span-2">
-        <div class="action-row">
-          <button id="submit-scenario" class="primary-btn" type="button">Add Scenario</button>
-          <button id="clear-scenarios" class="secondary-btn" type="button">Clear Scenarios</button>
-        </div>
-        <div class="scenario-summary">
-          <h3>Scenarios</h3>
-          <p id="scenario-list">None yet</p>
-        </div>
       </section>
 
       <section class="panel span-2">
