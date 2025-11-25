@@ -4,19 +4,11 @@ This iteration drops Dash in favor of a lightweight REST backend (Flask) plus a 
 
 ### Backend
 
-1. (Optional but recommended) create a virtual environment so the backend deps stay isolated:
+1. From the repo root run:
    ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
+   ./run_backend.sh
    ```
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Start the API:
-   ```bash
-   python3 backend.py
-   ```
+   This creates/activates `.venv`, installs backend deps, and launches the API.
    The server listens on `http://localhost:8000` and exposes:
    - `GET /api/schema` — table metadata & defaults
    - `GET /api/months` — helper endpoint for month dropdowns
@@ -31,8 +23,7 @@ Scenarios are still persisted to `user_data/scenarios.json` (this file is ignore
 The static frontend lives in `frontend/`. Any static file server will work; for example:
 
 ```bash
-cd frontend
-python3 -m http.server 4173
+./run_frontend.sh            # defaults to port 4173
 ```
 
 Open `http://localhost:4173` in a browser. By default the UI points to `http://localhost:8000`. If you run the API elsewhere, configure it before loading the page:

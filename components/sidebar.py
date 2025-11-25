@@ -4,7 +4,7 @@ from __future__ import annotations
 import dash_bootstrap_components as dbc
 from dash import html, dcc, dash_table
 
-from data_model import AccountTableModel, IncomeTableModel, SpendingTableModel
+from backend.data_model import AccountTableModel, IncomeTableModel, SpendingTableModel
 
 ACCOUNT_MODEL = AccountTableModel()
 INCOME_MODEL = IncomeTableModel()

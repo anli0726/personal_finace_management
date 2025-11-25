@@ -1,6 +1,6 @@
 import pandas as pd
 
-from data_model import AccountItem, CashflowItem, PlanConfig
+from ..data_model import AccountItem, CashflowItem, PlanConfig
 
 LIQUID_CATEGORIES = {"cash", "investment"}
 

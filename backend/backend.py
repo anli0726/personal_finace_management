@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+import os
+import sys
+
 import math
+from typing import Any, Dict, List
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
 
 from flask import Flask, jsonify, request
 
-from data_model import (
+from backend.data_model import (
     AccountItem,
     AccountTableModel,
     CashflowItem,
@@ -15,9 +22,9 @@ from data_model import (
     PlanConfig,
     SpendingTableModel,
 )
-from engine.aggregate import aggregate_period
-from engine.simulator import simulate_monthly
-from engine.state import ScenarioState
+from backend.engine.aggregate import aggregate_period
+from backend.engine.simulator import simulate_monthly
+from backend.engine.state import ScenarioState
 
 app = Flask(__name__)
 
