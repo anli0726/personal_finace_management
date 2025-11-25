@@ -4,7 +4,11 @@ This iteration drops Dash in favor of a lightweight REST backend (Flask) plus a 
 
 ### Backend
 
-1. (Optional) create/activate a virtualenv.
+1. (Optional but recommended) create a virtual environment so the backend deps stay isolated:
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   ```
 2. Install dependencies:
    ```bash
    pip install -r requirements.txt
