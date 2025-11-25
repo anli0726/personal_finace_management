@@ -197,11 +197,15 @@ const planStartYearInput = document.getElementById("plan-start-year");
 const planYearsInput = document.getElementById("plan-years");
 const taxRateInput = document.getElementById("tax-rate");
 const freqSelect = document.getElementById("freq");
+const planFreqSelect = document.getElementById("plan-freq");
 const planSelectInput = document.getElementById("saved-plans");
 const savePlanButton = document.getElementById("save-plan-btn");
 const loadPlanButton = document.getElementById("load-plan-btn");
 const deletePlanButton = document.getElementById("delete-plan-btn");
 const saveLayoutButton = document.getElementById("save-layout-btn");
+const addPlanButton = document.getElementById("add-plan-btn");
+const planEditorSection = document.getElementById("plan-editor-panel");
+const runSimulationButton = document.getElementById("run-simulation-btn");
 
 async function fetchJSON(path, options = {}) {
   try {
@@ -248,6 +252,34 @@ function setStatus(message, variant = "") {
   statusBanner.className = `status${variant ? ` ${variant}` : ""}`;
 }
 
+function showPlanEditor() {
+  if (planEditorSection) {
+    planEditorSection.classList.remove("is-hidden");
+    planEditorSection.hidden = false;
+    planEditorSection.removeAttribute("aria-hidden");
+  }
+}
+
+function hidePlanEditor() {
+  if (planEditorSection) {
+    planEditorSection.classList.add("is-hidden");
+    planEditorSection.hidden = true;
+    planEditorSection.setAttribute("aria-hidden", "true");
+  }
+}
+
+function isPlanEditorVisible() {
+  return planEditorSection ? !planEditorSection.hidden && !planEditorSection.classList.contains("is-hidden") : true;
+}
+
+function requirePlanEditorVisible() {
+  if (!isPlanEditorVisible()) {
+    setStatus("Add or load a plan before continuing.", "error");
+    return false;
+  }
+  return true;
+}
+
 function populatePlanDefaults(defaults) {
   planNameInput.value = defaults.name;
   planStartYearInput.value = defaults.startYear;
@@ -256,14 +288,17 @@ function populatePlanDefaults(defaults) {
 }
 
 function initFreqOptions(options, defaultValue) {
-  freqSelect.innerHTML = "";
-  options.forEach((opt) => {
-    const option = document.createElement("option");
-    option.value = opt.value;
-    option.textContent = opt.label;
-    freqSelect.appendChild(option);
+  const selects = [freqSelect, planFreqSelect].filter(Boolean);
+  selects.forEach((selectEl) => {
+    selectEl.innerHTML = "";
+    options.forEach((opt) => {
+      const option = document.createElement("option");
+      option.value = opt.value;
+      option.textContent = opt.label;
+      selectEl.appendChild(option);
+    });
+    selectEl.value = defaultValue;
   });
-  freqSelect.value = defaultValue;
 }
 
 function generateMonths(startYear, years) {
@@ -701,6 +736,24 @@ function buildPlanPayload() {
   };
 }
 
+function cloneModelDefaults(modelConfig) {
+  return (modelConfig?.defaults || []).map((row) => ({ ...row }));
+}
+
+function getDefaultPlanPayload() {
+  const defaults = schema?.planDefaults ?? FALLBACK_SCHEMA.planDefaults;
+  return {
+    name: defaults.name,
+    startYear: defaults.startYear,
+    years: defaults.years,
+    taxRate: defaults.taxRate,
+    freq: defaults.freq,
+    accounts: cloneModelDefaults(schema?.accounts ?? FALLBACK_SCHEMA.accounts),
+    incomes: cloneModelDefaults(schema?.incomes ?? FALLBACK_SCHEMA.incomes),
+    spendings: cloneModelDefaults(schema?.spendings ?? FALLBACK_SCHEMA.spendings),
+  };
+}
+
 function applyPlanPayload(plan) {
   if (!plan) {
     return;
@@ -719,12 +772,18 @@ function applyPlanPayload(plan) {
   }
   if (plan.freq) {
     currentFreq = plan.freq;
-    freqSelect.value = plan.freq;
+    if (planFreqSelect) {
+      planFreqSelect.value = plan.freq;
+    }
+    if (freqSelect) {
+      freqSelect.value = plan.freq;
+    }
   }
   accountsTable.setRows(plan.accounts || []);
   incomeTable.setRows(plan.incomes || []);
   spendingTable.setRows(plan.spendings || []);
   refreshMonths();
+  showPlanEditor();
 }
 
 async function fetchSavedPlans() {
@@ -767,6 +826,9 @@ async function handleSavePlan() {
   if (!planSelectInput) {
     return;
   }
+  if (!requirePlanEditorVisible()) {
+    return;
+  }
   try {
     const payload = buildPlanPayload();
     const response = await fetchJSON("/api/plans", {
@@ -793,12 +855,7 @@ async function handleLoadPlan() {
     applyPlanPayload(plan);
     setStatus(`Loaded plan "${planSelectInput.value}".`, "success");
     if (backendAvailable) {
-      const scenarioPayload = buildPlanPayload();
-      const data = await fetchJSON("/api/scenarios", {
-        method: "POST",
-        body: JSON.stringify(scenarioPayload),
-      });
-      renderCharts(data);
+      await runSimulation(true);
     }
   } catch (error) {
     setStatus(error.message, "error");
@@ -820,6 +877,15 @@ async function handleDeletePlan() {
   } catch (error) {
     setStatus(error.message, "error");
   }
+}
+
+function handleAddPlan() {
+  const defaults = getDefaultPlanPayload();
+  if (planSelectInput) {
+    planSelectInput.value = "";
+  }
+  applyPlanPayload(defaults);
+  setStatus("Default plan loaded. Customize and save when ready.", "success");
 }
 
 function capturePanelLayout() {
@@ -1087,12 +1153,17 @@ async function refreshScenarios() {
   }
 }
 
-async function submitScenario() {
+async function runSimulation(skipStatus = false) {
+  if (!requirePlanEditorVisible()) {
+    return;
+  }
   if (!backendAvailable) {
     setStatus("Backend not running. Start the API server to simulate.", "error");
     return;
   }
-  setStatus("Running simulation...");
+  if (!skipStatus) {
+    setStatus("Running simulation...");
+  }
   try {
     const payload = buildPlanPayload();
     if (!savedPlanNames.includes(payload.name)) {
@@ -1107,7 +1178,9 @@ async function submitScenario() {
       body: JSON.stringify(payload),
     });
     renderCharts(data);
-    setStatus("Scenario added.", "success");
+    if (!skipStatus) {
+      setStatus("Simulation updated.", "success");
+    }
   } catch (error) {
     setStatus(error.message, "error");
   }
@@ -1138,14 +1211,31 @@ function attachEventListeners() {
   document.getElementById("add-account-row").addEventListener("click", () => accountsTable.addRow());
   document.getElementById("add-income-row").addEventListener("click", () => incomeTable.addRow());
   document.getElementById("add-spending-row").addEventListener("click", () => spendingTable.addRow());
-  document.getElementById("submit-scenario").addEventListener("click", submitScenario);
+  if (runSimulationButton) {
+    runSimulationButton.addEventListener("click", () => runSimulation(false));
+  }
   document.getElementById("clear-scenarios").addEventListener("click", clearScenarios);
   planStartYearInput.addEventListener("input", refreshMonths);
   planYearsInput.addEventListener("input", refreshMonths);
-  freqSelect.addEventListener("change", (event) => {
+  const freqChangeHandler = (event) => {
     currentFreq = event.target.value;
+    if (freqSelect && event.target !== freqSelect) {
+      freqSelect.value = currentFreq;
+    }
+    if (planFreqSelect && event.target !== planFreqSelect) {
+      planFreqSelect.value = currentFreq;
+    }
     refreshScenarios();
-  });
+  };
+  if (freqSelect) {
+    freqSelect.addEventListener("change", freqChangeHandler);
+  }
+  if (planFreqSelect) {
+    planFreqSelect.addEventListener("change", freqChangeHandler);
+  }
+  if (addPlanButton) {
+    addPlanButton.addEventListener("click", handleAddPlan);
+  }
   if (savePlanButton) {
     savePlanButton.addEventListener("click", handleSavePlan);
   }
@@ -1161,6 +1251,7 @@ function attachEventListeners() {
 }
 
 async function bootstrap() {
+  hidePlanEditor();
   initPanelInteractivity();
   setStatus("Loading models...");
   try {

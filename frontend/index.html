@@ -22,7 +22,73 @@
 
     <main class="app-grid">
       <section class="panel span-2" data-panel-id="plan">
-        <h2>Plan Basics & Actions</h2>
+        <h2>Plan Management</h2>
+
+        <div class="plan-card" id="plan-loader">
+          <h3>Plan Loading</h3>
+          <label for="saved-plans">Saved Plans</label>
+          <div class="plan-select-row">
+            <select id="saved-plans"></select>
+          </div>
+          <div class="plan-loader-actions">
+            <button id="load-plan-btn" class="secondary-btn" type="button">Load Plan</button>
+            <button id="delete-plan-btn" class="secondary-btn" type="button">Delete Plan</button>
+          </div>
+          <button id="add-plan-btn" class="primary-btn" type="button">Add New Plan</button>
+        </div>
+
+        <div class="plan-card is-hidden" id="plan-editor" hidden>
+          <div class="plan-editor-header">
+            <h3>Plan Basics & Actions</h3>
+            <div class="plan-editor-actions">
+              <button id="save-plan-btn" class="secondary-btn" type="button">Save Current Plan</button>
+              <button id="save-layout-btn" class="secondary-btn" type="button">Save Layout</button>
+            </div>
+          </div>
+          <div class="form-grid">
+            <label for="plan-name">Scenario Name</label>
+            <input id="plan-name" type="text" />
+
+            <label for="plan-start-year">Start Year</label>
+            <input id="plan-start-year" type="number" min="1900" max="2100" />
+
+            <label for="plan-years">Duration (years)</label>
+            <input id="plan-years" type="number" min="1" max="40" />
+
+            <label for="tax-rate">Tax Rate (%)</label>
+            <input id="tax-rate" type="number" min="0" max="60" step="0.5" />
+
+            <label for="plan-freq">Granularity</label>
+            <select id="plan-freq"></select>
+          </div>
+        </div>
+
+        <div class="plan-card" id="simulation-box">
+          <h3>Simulation & Plotting</h3>
+          <p class="plan-note">Run the current plan to update charts and tables.</p>
+          <div class="simulation-settings">
+            <label for="freq">Granularity</label>
+            <select id="freq"></select>
+          </div>
+          <div class="simulation-controls">
+            <button id="run-simulation-btn" class="primary-btn" type="button">Simulate &amp; Plot</button>
+            <button id="clear-scenarios" class="secondary-btn" type="button">Clear Results</button>
+          </div>
+          <div class="scenario-summary">
+            <h4>Plotted Scenarios</h4>
+            <p id="scenario-list">None yet</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel span-2 is-hidden" data-panel-id="plan-basics" id="plan-editor-panel" hidden>
+        <div class="plan-editor-header">
+          <h2>Plan Basics &amp; Actions</h2>
+          <div class="plan-editor-actions">
+            <button id="save-plan-btn" class="secondary-btn" type="button">Save Current Plan</button>
+            <button id="save-layout-btn" class="secondary-btn" type="button">Save Layout</button>
+          </div>
+        </div>
         <div class="form-grid">
           <label for="plan-name">Scenario Name</label>
           <input id="plan-name" type="text" />
@@ -36,28 +102,6 @@
           <label for="tax-rate">Tax Rate (%)</label>
           <input id="tax-rate" type="number" min="0" max="60" step="0.5" />
 
-          <label for="freq">Granularity</label>
-          <select id="freq"></select>
-        </div>
-        <div class="action-row">
-          <button id="submit-scenario" class="primary-btn" type="button">Add Scenario</button>
-          <button id="clear-scenarios" class="secondary-btn" type="button">Clear Scenarios</button>
-        </div>
-        <div class="plan-storage">
-          <div class="plan-storage-header">
-            <label for="saved-plans">Saved Plans</label>
-            <div class="plan-select-row">
-              <select id="saved-plans"></select>
-              <button id="load-plan-btn" class="secondary-btn" type="button">Load</button>
-              <button id="delete-plan-btn" class="secondary-btn" type="button">Delete</button>
-            </div>
-          </div>
-          <button id="save-plan-btn" class="secondary-btn" type="button">Save Current Plan</button>
-          <button id="save-layout-btn" class="secondary-btn" type="button">Save Layout</button>
-        </div>
-        <div class="scenario-summary">
-          <h3>Scenarios</h3>
-          <p id="scenario-list">None yet</p>
         </div>
       </section>
 

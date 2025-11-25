@@ -207,11 +207,23 @@ body.is-gesturing {
   color: var(--text);
 }
 
-.plan-storage {
-  margin-top: 0.5rem;
+.plan-card {
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 0.85rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
+}
+
+.plan-card + .plan-card {
+  margin-top: 0.35rem;
+}
+
+.plan-card h3 {
+  margin: 0;
+  font-size: 1rem;
 }
 
 .plan-select-row {
@@ -228,6 +240,54 @@ body.is-gesturing {
   border: 1px solid var(--panel-border);
   background: #12141a;
   color: var(--text);
+}
+
+.plan-loader-actions,
+.plan-editor-actions,
+.simulation-controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.plan-editor-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.plan-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.simulation-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.simulation-settings label,
+.plan-card select + label {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.simulation-settings select {
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--panel-border);
+  background: #12141a;
+  color: var(--text);
+}
+
+.is-hidden {
+  display: none !important;
 }
 
 .table-wrapper {
@@ -371,7 +431,8 @@ td select {
   border: 1px dashed var(--panel-border);
 }
 
-.scenario-summary h3 {
+.scenario-summary h3,
+.scenario-summary h4 {
   margin: 0 0 0.25rem;
   color: var(--muted);
   text-transform: uppercase;
