@@ -200,6 +200,7 @@ const freqSelect = document.getElementById("freq");
 const planFreqSelect = document.getElementById("plan-freq");
 const planSelectInput = document.getElementById("saved-plans");
 const savePlanButton = document.getElementById("save-plan-btn");
+const saveNewPlanButton = document.getElementById("save-new-plan-btn");
 const loadPlanButton = document.getElementById("load-plan-btn");
 const deletePlanButton = document.getElementById("delete-plan-btn");
 const saveLayoutButton = document.getElementById("save-layout-btn");
@@ -822,7 +823,7 @@ function updatePlanSelect(planNames, preferred) {
   }
 }
 
-async function handleSavePlan() {
+async function persistPlan(requireUniqueName = false) {
   if (!planSelectInput) {
     return;
   }
@@ -831,18 +832,34 @@ async function handleSavePlan() {
   }
   try {
     const payload = buildPlanPayload();
+    if (requireUniqueName && savedPlanNames.includes(payload.name)) {
+      setStatus(`Plan "${payload.name}" already exists. Choose a new name.`, "error");
+      return;
+    }
     const response = await fetchJSON("/api/plans", {
       method: "POST",
       body: JSON.stringify(payload),
     });
     updatePlanSelect(response.plans || [], payload.name);
+    if (planSelectInput) {
+      planSelectInput.value = payload.name;
+    }
+    await fetchSavedPlans();
     if (response.plan) {
       applyPlanPayload(response.plan);
     }
-    setStatus("Plan saved.", "success");
+    setStatus(requireUniqueName ? "Plan saved as new." : "Plan saved.", "success");
   } catch (error) {
     setStatus(error.message, "error");
   }
+}
+
+async function handleSavePlan() {
+  await persistPlan(false);
+}
+
+async function handleSavePlanAsNew() {
+  await persistPlan(true);
 }
 
 async function handleLoadPlan() {
@@ -1238,6 +1255,9 @@ function attachEventListeners() {
   }
   if (savePlanButton) {
     savePlanButton.addEventListener("click", handleSavePlan);
+  }
+  if (saveNewPlanButton) {
+    saveNewPlanButton.addEventListener("click", handleSavePlanAsNew);
   }
   if (loadPlanButton) {
     loadPlanButton.addEventListener("click", handleLoadPlan);

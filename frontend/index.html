@@ -37,32 +37,6 @@
           <button id="add-plan-btn" class="primary-btn" type="button">Add New Plan</button>
         </div>
 
-        <div class="plan-card is-hidden" id="plan-editor" hidden>
-          <div class="plan-editor-header">
-            <h3>Plan Basics & Actions</h3>
-            <div class="plan-editor-actions">
-              <button id="save-plan-btn" class="secondary-btn" type="button">Save Current Plan</button>
-              <button id="save-layout-btn" class="secondary-btn" type="button">Save Layout</button>
-            </div>
-          </div>
-          <div class="form-grid">
-            <label for="plan-name">Scenario Name</label>
-            <input id="plan-name" type="text" />
-
-            <label for="plan-start-year">Start Year</label>
-            <input id="plan-start-year" type="number" min="1900" max="2100" />
-
-            <label for="plan-years">Duration (years)</label>
-            <input id="plan-years" type="number" min="1" max="40" />
-
-            <label for="tax-rate">Tax Rate (%)</label>
-            <input id="tax-rate" type="number" min="0" max="60" step="0.5" />
-
-            <label for="plan-freq">Granularity</label>
-            <select id="plan-freq"></select>
-          </div>
-        </div>
-
         <div class="plan-card" id="simulation-box">
           <h3>Simulation & Plotting</h3>
           <p class="plan-note">Run the current plan to update charts and tables.</p>
@@ -86,6 +60,7 @@
           <h2>Plan Basics &amp; Actions</h2>
           <div class="plan-editor-actions">
             <button id="save-plan-btn" class="secondary-btn" type="button">Save Current Plan</button>
+            <button id="save-new-plan-btn" class="secondary-btn" type="button">Save As New Plan</button>
             <button id="save-layout-btn" class="secondary-btn" type="button">Save Layout</button>
           </div>
         </div>
@@ -101,6 +76,9 @@
 
           <label for="tax-rate">Tax Rate (%)</label>
           <input id="tax-rate" type="number" min="0" max="60" step="0.5" />
+
+          <label for="plan-freq">Granularity</label>
+          <select id="plan-freq"></select>
 
         </div>
       </section>
