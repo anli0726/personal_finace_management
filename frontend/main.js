@@ -133,6 +133,15 @@ const FALLBACK_SCHEMA = {
         step: 1000,
         format: "%.2f",
       },
+      {
+        field: "Inflation Rate (%)",
+        label: "Inflation Rate (%)",
+        kind: "number",
+        default: 0,
+        min: 0,
+        step: 0.25,
+        format: "%.2f",
+      },
       { field: "Start Month", label: "Start Month", kind: "select", default: "" },
       {
         field: "End Month",
@@ -146,6 +155,7 @@ const FALLBACK_SCHEMA = {
         Name: "Personal Expense",
         Category: "living",
         "Annual Amount": 67200,
+        "Inflation Rate (%)": 0,
         "Start Month": "",
         "End Month": "",
       },
@@ -191,6 +201,7 @@ function normalizeCurrencyValue(value) {
   return 0;
 }
 
+
 const statusBanner = document.getElementById("status-banner");
 const planNameInput = document.getElementById("plan-name");
 const planStartYearInput = document.getElementById("plan-start-year");
@@ -206,6 +217,7 @@ const saveLayoutButton = document.getElementById("save-layout-btn");
 const addPlanButton = document.getElementById("add-plan-btn");
 const planEditorSection = document.getElementById("plan-editor-panel");
 const runSimulationButton = document.getElementById("run-simulation-btn");
+const livingInflationInput = document.getElementById("living-inflation-rate");
 
 async function fetchJSON(path, options = {}) {
   try {
@@ -285,6 +297,7 @@ function populatePlanDefaults(defaults) {
   planStartYearInput.value = defaults.startYear;
   planYearsInput.value = defaults.years;
   taxRateInput.value = defaults.taxRate;
+  setLivingInflationRateValue(defaults.livingInflationRate ?? 0);
 }
 
 function initFreqOptions(options, defaultValue) {
@@ -726,6 +739,20 @@ function collectPlanValues() {
   };
 }
 
+function getLivingInflationRateValue() {
+  if (!livingInflationInput) {
+    return 0;
+  }
+  const parsed = parseFloat(livingInflationInput.value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function setLivingInflationRateValue(value) {
+  if (livingInflationInput) {
+    livingInflationInput.value = Number.isFinite(value) ? value : 0;
+  }
+}
+
 function buildPlanPayload() {
   const base = collectPlanValues();
   return {
@@ -733,6 +760,7 @@ function buildPlanPayload() {
     accounts: accountsTable.getRows(),
     incomes: incomeTable.getRows(),
     spendings: spendingTable.getRows(),
+    livingInflationRate: getLivingInflationRateValue(),
   };
 }
 
@@ -751,6 +779,7 @@ function getDefaultPlanPayload() {
     accounts: cloneModelDefaults(schema?.accounts ?? FALLBACK_SCHEMA.accounts),
     incomes: cloneModelDefaults(schema?.incomes ?? FALLBACK_SCHEMA.incomes),
     spendings: cloneModelDefaults(schema?.spendings ?? FALLBACK_SCHEMA.spendings),
+    livingInflationRate: defaults.livingInflationRate ?? 0,
   };
 }
 
@@ -775,6 +804,11 @@ function applyPlanPayload(plan) {
     if (freqSelect) {
       freqSelect.value = plan.freq;
     }
+  }
+  if (plan.livingInflationRate !== undefined && plan.livingInflationRate !== null) {
+    setLivingInflationRateValue(plan.livingInflationRate);
+  } else {
+    setLivingInflationRateValue(0);
   }
   accountsTable.setRows(plan.accounts || []);
   incomeTable.setRows(plan.incomes || []);

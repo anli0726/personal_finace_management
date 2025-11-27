@@ -25,4 +25,3 @@ __all__ = [
     "dataframe_to_accounts",
     "dataframe_to_cashflows",
 ]
-

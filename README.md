@@ -39,6 +39,8 @@ Open `http://localhost:4173` in a browser. By default the UI points to `http://l
 
 1. Fill in plan basics (name, start year, horizon, tax rate & frequency). The action buttons live on the same card.
 - Enter account/income/spending rows (add/remove rows with the buttons). Drag column dividers or the lower-right handle to resize table columns/height inside each card.
+- Set the **Living Cost Inflation Rate** (above the expense table) to automatically grow all `living`-category expenses each year; leave at zero for flat costs.
+- Use the expense table's **Inflation Rate (%)** column whenever you want a spending line to grow automatically over time (leave it at 0 for flat costs).
 - Click **Add Scenario** to simulate; charts + aggregated table update automatically and accumulate multiple scenarios.
 - Use **Clear Scenarios** to wipe everything and start over.
 - Save/load/delete named plans via the controls on the plan card; the definitions live locally in `user_data/plans.json`.

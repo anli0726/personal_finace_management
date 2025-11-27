@@ -17,3 +17,4 @@ class PlanConfig:
     accounts: List[AccountItem] = field(default_factory=list)
     incomes: List[CashflowItem] = field(default_factory=list)
     spendings: List[CashflowItem] = field(default_factory=list)
+    living_inflation_rate: float = 0.0

@@ -37,6 +37,7 @@ def _build_cashflow_state(item: CashflowItem, n_months: int) -> dict:
         "end_m": end_m,
         "amount_m": item.amount_per_month(),
         "taxable": getattr(item, "taxable", False),
+        "inflation_rate": getattr(item, "inflation_rate", 0.0) or 0.0,
     }
 
 
@@ -73,7 +74,7 @@ def simulate_monthly(cfg: PlanConfig) -> pd.DataFrame:
             return sum(state["amount_m"] for state in states if state["start_m"] <= m <= state["end_m"])
 
         total_income = _sum_cashflow(income_states)
-        total_spending = _sum_cashflow(spending_states)
+        total_spending = 0.0
         taxable_income = sum(
             state["amount_m"]
             for state in income_states
@@ -126,6 +127,14 @@ def simulate_monthly(cfg: PlanConfig) -> pd.DataFrame:
                     state["completed"] = True
                 else:
                     state["rate_m"] = 0.0
+
+        for state in spending_states:
+            if not (state["start_m"] <= m <= state["end_m"]):
+                continue
+            years_elapsed = max(0.0, (m - state["start_m"]) / 12.0)
+            rate = state.get("inflation_rate", 0.0) or 0.0
+            multiplier = (1.0 + rate) ** years_elapsed if rate else 1.0
+            total_spending += state["amount_m"] * multiplier
 
         snapshot = {
             "Scenario": cfg.name,

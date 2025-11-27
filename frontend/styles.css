@@ -104,6 +104,29 @@ body {
   justify-content: space-between;
 }
 
+.living-inflation-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.living-inflation-control label {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.living-inflation-control input {
+  width: 140px;
+  padding: 0.35rem 0.4rem;
+  border-radius: 0.45rem;
+  border: 1px solid var(--panel-border);
+  background: #12141a;
+  color: var(--text);
+}
+
 .span-2 {
   flex: 1 1 640px;
 }
