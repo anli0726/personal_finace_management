@@ -110,7 +110,6 @@ class CashflowItem:
     end_year: float = 0.0
     flow_type: Literal["income", "spending"] = "income"
     taxable: bool = False
-    inflation_rate: float = 0.0
 
     def amount_per_month(self) -> float:
         return self.annual_amount / 12.0
@@ -125,7 +124,6 @@ def dataframe_to_cashflows(df: pd.DataFrame, flow_type: Literal["income", "spend
         amount = float(row.get("Annual Amount", 0.0) or 0.0)
         if amount == 0.0:
             continue
-        inflation_rate = float(row.get("Inflation Rate (%)", 0.0) or 0.0) / 100.0
         rows.append(
             CashflowItem(
                 name=name,
@@ -135,7 +133,6 @@ def dataframe_to_cashflows(df: pd.DataFrame, flow_type: Literal["income", "spend
                 end_year=float(row.get("End Year", 0.0) or 0.0),
                 flow_type=flow_type,
                 taxable=bool(row.get("Taxable", False)),
-                inflation_rate=inflation_rate if flow_type == "spending" else 0.0,
             )
         )
     return rows

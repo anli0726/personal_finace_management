@@ -88,13 +88,7 @@ def parse_accounts(rows: list[dict], plan_start_year: int) -> list[AccountItem]:
     return accounts
 
 
-def parse_cashflows(
-    rows: list[dict],
-    plan_start_year: int,
-    flow_type: str,
-    *,
-    living_inflation_rate: float = 0.0,
-) -> list[CashflowItem]:
+def parse_cashflows(rows: list[dict], plan_start_year: int, flow_type: str) -> list[CashflowItem]:
     flows: list[CashflowItem] = []
     for row in rows or []:
         name = str(row.get("Name", "")).strip()
@@ -106,12 +100,6 @@ def parse_cashflows(
         start_month = str(row.get("Start Month", "")).strip()
         end_month = str(row.get("End Month", "")).strip()
         category = str(row.get("Category", "other"))
-        inflation_rate = 0.0
-        if flow_type == "spending":
-            if category.lower() == "living":
-                inflation_rate = living_inflation_rate
-            else:
-                inflation_rate = float(row.get("Inflation Rate (%)", 0.0) or 0.0) / 100.0
         flows.append(
             CashflowItem(
                 name=name,
@@ -121,7 +109,6 @@ def parse_cashflows(
                 end_year=0.0 if not end_month else month_string_to_year_offset(end_month, plan_start_year),
                 flow_type=flow_type,
                 taxable=is_taxable_income_category(category) if flow_type == "income" else False,
-                inflation_rate=inflation_rate,
             )
         )
     return flows
@@ -314,7 +301,6 @@ def add_scenario():
         spending_rows,
         start_year,
         "spending",
-        living_inflation_rate=living_inflation_rate,
     )
     cfg = PlanConfig(
         name=name,
