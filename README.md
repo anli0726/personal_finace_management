@@ -1,50 +1,45 @@
-## Personal Financial Tool
+# Personal Financial Tool
 
-This iteration drops Dash in favor of a lightweight REST backend (Flask) plus a vanilla HTML/JS frontend. The Python side keeps the existing simulator/data-model logic, while the browser handles data entry, charts (Chart.js), and presentation.
+A lightweight planning sandbox for modeling multi-year personal finance scenarios. Define assets, income streams, spending patterns, and a living-cost inflation rate, then compare the resulting net-worth and liquidity trajectories through an interactive dashboard.
 
-### Backend
+## What You Can Do
+- Capture current accounts (cash, investments, liabilities) plus future-dated income/spending rows.
+- Model lifestyle inflation globally by setting a single **Living Cost Inflation Rate** that automatically escalates all `living` expenses.
+- Simulate multiple scenarios and visualize the outcomes side-by-side (net worth, liquid assets, aggregated table).
+- Save/load plan definitions and preferred dashboard layouts locally.
 
-1. From the repo root run:
+## Quick Start
+1. **Backend** – start the REST API (Python 3.11+, Flask).
    ```bash
    ./run_backend.sh
    ```
-   This creates/activates `.venv`, installs backend deps, and launches the API.
-   The server listens on `http://localhost:8000` and exposes:
-   - `GET /api/schema` — table metadata & defaults
-   - `GET /api/months` — helper endpoint for month dropdowns
-   - `GET /api/scenarios?freq=Q` — aggregated series (M/Q/Y)
-   - `POST /api/scenarios` — run a simulation with the posted payload
-   - `DELETE /api/scenarios` — wipe stored scenarios
+   The service listens on `http://localhost:8000`.
+2. **Frontend** – serve the static UI (vanilla HTML/CSS/JS).
+   ```bash
+   ./run_frontend.sh   # defaults to http://localhost:4173
+   ```
+3. Open the frontend in a browser, fill in plan basics, add accounts/income/spending rows, set the living-cost inflation rate, and click **Simulate & Plot**.
 
-Scenarios are still persisted to `user_data/scenarios.json` (this file is ignored by git so personal runs stay local).
+## Tech Snapshot
+- **Backend**: Python, Flask, Pandas. Provides REST endpoints for schema metadata, plan CRUD, scenario execution, and layout storage. Persists data under `user_data/`.
+- **Frontend**: Vanilla JS, Chart.js for visualization, CSS layout tuned for drag/resizable panels. Talks to the backend via fetch/XHR.
+- **Data Model**: Plans carry accounts/income/spending arrays plus a living inflation rate. Scenarios are simulated monthly and aggregated to monthly/quarterly/yearly views.
 
-### Frontend
+## API & Interface Summary
+- `GET /api/schema` – Returns table metadata, defaults, and frequency options used by the UI.
+- `POST /api/scenarios` – Accepts the current plan payload, runs the simulator, and returns aggregated data for plotting.
+- `GET/POST/DELETE /api/plans` – Manage locally persisted plan definitions.
+- `GET/POST /api/layout` – Load/store dashboard layouts.
 
-The static frontend lives in `frontend/`. Any static file server will work; for example:
+All endpoints are unauthenticated and intended for local use. See `backend/README.md` for detailed API contracts and module structure.
 
-```bash
-./run_frontend.sh            # defaults to port 4173
-```
+## Repository Layout
+- `backend/` – Flask app, simulation engine, data models, storage helpers. (More detail in `backend/README.md`.)
+- `frontend/` – Static UI assets (HTML, CSS, JS). (More detail in `frontend/README.md`.)
+- `user_data/` – Local persistence for plans, scenarios, and layout preferences (git-ignored).
+- `run_backend.sh` / `run_frontend.sh` – Convenience launch scripts.
 
-Open `http://localhost:4173` in a browser. By default the UI points to `http://localhost:8000`. If you run the API elsewhere, configure it before loading the page:
-
-```html
-<script>
-  window.APP_CONFIG = { apiBase: "http://127.0.0.1:9000" };
-</script>
-<script src="main.js" type="module" defer></script>
-```
-
-### Workflow
-
-1. Fill in plan basics (name, start year, horizon, tax rate & frequency). The action buttons live on the same card.
-- Enter account/income/spending rows (add/remove rows with the buttons). Drag column dividers or the lower-right handle to resize table columns/height inside each card.
-- Set the **Living Cost Inflation Rate** (above the expense table) to automatically grow all `living`-category expenses each year; leave at zero for flat costs.
-- Use the expense table's **Inflation Rate (%)** column whenever you want a spending line to grow automatically over time (leave it at 0 for flat costs).
-- Click **Add Scenario** to simulate; charts + aggregated table update automatically and accumulate multiple scenarios.
-- Use **Clear Scenarios** to wipe everything and start over.
-- Save/load/delete named plans via the controls on the plan card; the definitions live locally in `user_data/plans.json`.
-- Adjust the dashboard layout (drag handles / resize corners) and click **Save Layout** to keep your preferred arrangement as the default (stored locally in `user_data/layout.json`).
-- Reorder dashboard cards via the "::" handle (dropping a card below the grid creates a new row) and resize panels from the bottom-right corner.
-
-The new UI uses Chart.js (via CDN) for the net-worth/liquidity plots and works against the REST API, so backend & frontend can evolve independently.
+## Notes
+- Plans and scenarios stay on disk so you can close/reopen the UI without losing work.
+- The simulator currently assumes deterministic growth; incorporate market swings by editing account return rates or duplicating scenarios with different assumptions.
+- Contributions welcome—open an issue or PR with ideas or fixes. For development details (dependencies, linting, etc.), consult the per-directory READMEs.
