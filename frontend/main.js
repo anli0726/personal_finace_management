@@ -13,6 +13,7 @@ const FALLBACK_SCHEMA = {
     years: 5,
     taxRate: 25,
     freq: "Q",
+    livingInflationRate: 0,
   },
   freqOptions: [
     { label: "Monthly", value: "M" },
@@ -133,15 +134,6 @@ const FALLBACK_SCHEMA = {
         step: 1000,
         format: "%.2f",
       },
-      {
-        field: "Inflation Rate (%)",
-        label: "Inflation Rate (%)",
-        kind: "number",
-        default: 0,
-        min: 0,
-        step: 0.25,
-        format: "%.2f",
-      },
       { field: "Start Month", label: "Start Month", kind: "select", default: "" },
       {
         field: "End Month",
@@ -155,7 +147,6 @@ const FALLBACK_SCHEMA = {
         Name: "Personal Expense",
         Category: "living",
         "Annual Amount": 67200,
-        "Inflation Rate (%)": 0,
         "Start Month": "",
         "End Month": "",
       },
