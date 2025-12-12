@@ -165,6 +165,32 @@ let backendAvailable = true;
 let gridContainer = null;
 let dragState = null;
 let resizeState = null;
+// Top-level tab elements (will be set in bootstrap)
+let tabPlanBtn;
+let tabTrackBtn;
+let planView;
+let trackView;
+// Tracker UI elements (will be set in bootstrap)
+let dropZone;
+let fileInput;
+let trackedAccountsSelect;
+let loadAccountBtn;
+let deleteAccountBtn;
+let addAccountBtn;
+let newAccountForm;
+let newAccountBankSelect;
+let newAccountTypeSelect;
+let newAccountNameInput;
+let saveAccountBtn;
+let cancelAccountBtn;
+let importResultEl;
+let transactionsTableEl;
+// Current selected account (for tracker)
+let currentTrackedAccount = null;
+let currentAccountBank = null;
+let currentAccountType = null;
+// Stored accounts (name -> {bank, type})
+let trackedAccounts = {};
 let savedPlanNames = [];
 const PANEL_LAYOUT_KEY = "panelLayout";
 const currencyFormat = new Intl.NumberFormat("en-US", {
@@ -1279,9 +1305,317 @@ function attachEventListeners() {
   if (saveLayoutButton) {
     saveLayoutButton.addEventListener("click", () => persistPanelLayout(true));
   }
+  // Top-level tab handlers
+  if (tabPlanBtn && tabTrackBtn) {
+    tabPlanBtn.addEventListener("click", () => showPlanView());
+    tabTrackBtn.addEventListener("click", () => showTrackView());
+  }
+  // Tracker account handlers
+  if (loadAccountBtn) {
+    loadAccountBtn.addEventListener("click", () => handleLoadTrackedAccount());
+  }
+  if (deleteAccountBtn) {
+    deleteAccountBtn.addEventListener("click", () => handleDeleteTrackedAccount());
+  }
+  if (addAccountBtn) {
+    addAccountBtn.addEventListener("click", () => showAccountCreationForm());
+  }
+  if (saveAccountBtn) {
+    saveAccountBtn.addEventListener("click", () => handleSaveAccount());
+  }
+  if (cancelAccountBtn) {
+    cancelAccountBtn.addEventListener("click", () => hideAccountCreationForm());
+  }
+  if (fileInput) {
+    fileInput.addEventListener("change", (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (f) {
+        uploadFile(f);
+      }
+    });
+  }
+  if (dropZone) {
+    dropZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropZone.classList.add("drag-over");
+    });
+    dropZone.addEventListener("dragleave", (e) => {
+      dropZone.classList.remove("drag-over");
+    });
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("drag-over");
+      const f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) {
+        uploadFile(f);
+      }
+    });
+  }
+}
+
+function showPlanView() {
+  tabPlanBtn.classList.add("active");
+  tabTrackBtn.classList.remove("active");
+  planView.style.display = "";
+  trackView.style.display = "none";
+}
+
+function showTrackView() {
+  tabTrackBtn.classList.add("active");
+  tabPlanBtn.classList.remove("active");
+  planView.style.display = "none";
+  trackView.style.display = "";
+  fetchTrackedAccounts();
+  fetchTransactions();
+}
+
+function handleLoadTrackedAccount() {
+  if (!trackedAccountsSelect || !trackedAccountsSelect.value) {
+    alert("Please select an account first");
+    return;
+  }
+  currentTrackedAccount = trackedAccountsSelect.value;
+  const accountMeta = trackedAccounts[currentTrackedAccount] || {};
+  currentAccountBank = accountMeta.bank;
+  currentAccountType = accountMeta.type;
+  fetchTransactions();
+}
+
+function handleDeleteTrackedAccount() {
+  if (!currentTrackedAccount) {
+    alert("Please select an account first");
+    return;
+  }
+  if (confirm(`Delete account "${currentTrackedAccount}" and all its transactions?`)) {
+    // Delete from backend
+    fetch(`${API_BASE}/api/transactions?account=${encodeURIComponent(currentTrackedAccount)}`, { method: 'DELETE' })
+      .then(res => res.json())
+      .then(data => {
+        // Delete from localStorage
+        delete trackedAccounts[currentTrackedAccount];
+        saveStoredAccounts();
+        currentTrackedAccount = null;
+        currentAccountBank = null;
+        currentAccountType = null;
+        trackedAccountsSelect.value = "";
+        fetchTrackedAccounts();
+        transactionsTableEl.innerHTML = `<div class="small">Account "${data.account || 'Unknown'}" and ${data.count || 0} transactions deleted.</div>`;
+      })
+      .catch(err => {
+        console.error("Delete error:", err);
+        alert(`Failed to delete account: ${err.message}`);
+      });
+  }
+}
+
+function showAccountCreationForm() {
+  if (newAccountForm) {
+    newAccountForm.style.display = "";
+    newAccountBankSelect.value = "";
+    newAccountTypeSelect.value = "";
+    newAccountNameInput.value = "";
+    newAccountNameInput.focus();
+  }
+}
+
+function hideAccountCreationForm() {
+  if (newAccountForm) {
+    newAccountForm.style.display = "none";
+  }
+}
+
+function handleSaveAccount() {
+  const bank = newAccountBankSelect.value;
+  const type = newAccountTypeSelect.value;
+  const name = newAccountNameInput.value.trim();
+  
+  if (!bank || !type || !name) {
+    alert("Please fill in all fields (Bank, Type, and Name)");
+    return;
+  }
+  
+  if (trackedAccounts[name]) {
+    alert(`Account "${name}" already exists`);
+    return;
+  }
+  
+  trackedAccounts[name] = { bank, type };
+  saveStoredAccounts();
+  
+  currentTrackedAccount = name;
+  currentAccountBank = bank;
+  currentAccountType = type;
+  
+  hideAccountCreationForm();
+  fetchTrackedAccounts();
+  
+  alert(`Account "${name}" created successfully!`);
+}
+
+function loadStoredAccounts() {
+  try {
+    const stored = localStorage.getItem("trackedAccounts");
+    if (stored) {
+      trackedAccounts = JSON.parse(stored);
+    }
+  } catch (err) {
+    console.warn("Failed to load stored accounts:", err);
+    trackedAccounts = {};
+  }
+}
+
+function saveStoredAccounts() {
+  try {
+    localStorage.setItem("trackedAccounts", JSON.stringify(trackedAccounts));
+  } catch (err) {
+    console.warn("Failed to save accounts:", err);
+  }
+}
+
+async function uploadFile(file, force = false) {
+  if (!file) return;
+  if (!currentTrackedAccount) {
+    alert("Please select or create an account first");
+    return;
+  }
+  
+  // Make sure account metadata is loaded
+  if (!currentAccountBank) {
+    const accountMeta = trackedAccounts[currentTrackedAccount] || {};
+    currentAccountBank = accountMeta.bank;
+    currentAccountType = accountMeta.type;
+  }
+  
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('account_name', currentTrackedAccount);
+  fd.append('bank', currentAccountBank || '');
+  if (force) fd.append('force', 'true');
+  fileInput.value = "";
+  if (importResultEl) importResultEl.textContent = 'Uploading...';
+  try {
+    const res = await fetch(`${API_BASE}/api/transactions/import`, { method: 'POST', body: fd });
+    const data = await res.json();
+    
+    if (!res.ok) {
+      if (importResultEl) {
+        if (data.error === "File already imported" && !force) {
+          // Show confirmation dialog
+          importResultEl.innerHTML = `
+            <div class="import-error">
+              <p>This file has already been imported.</p>
+              <button id="re-import-yes">Re-import Now</button>
+              <button id="re-import-no">Cancel</button>
+            </div>
+          `;
+          const yesBtn = document.getElementById('re-import-yes');
+          const noBtn = document.getElementById('re-import-no');
+          if (yesBtn) {
+            yesBtn.addEventListener('click', () => uploadFile(file, true));
+          }
+          if (noBtn) {
+            noBtn.addEventListener('click', () => {
+              importResultEl.innerHTML = '';
+            });
+          }
+        } else {
+          importResultEl.textContent = `Import failed: ${data.error || res.statusText}`;
+        }
+      }
+      return;
+    }
+    
+    if (importResultEl) importResultEl.innerHTML = `<div class="import-success">Imported: <strong>${data.result.rows_parsed}</strong>, Duplicates: <strong>${data.result.rows_duplicate}</strong>, Errors: <strong>${data.result.rows_error}</strong></div>`;
+    // refresh transactions
+    await fetchTransactions();
+  } catch (err) {
+    if (importResultEl) importResultEl.textContent = `Upload error: ${err.message}`;
+  }
+}
+
+async function fetchTrackedAccounts() {
+  if (!trackedAccountsSelect) return;
+  
+  // Get list from stored accounts only (not from transactions)
+  const storedNames = Object.keys(trackedAccounts).sort();
+  
+  trackedAccountsSelect.innerHTML = '<option value="">-- Select account --</option>';
+  storedNames.forEach(account => {
+    const opt = document.createElement('option');
+    opt.value = account;
+    const meta = trackedAccounts[account];
+    opt.textContent = `${account} (${meta.bank}, ${meta.type})`;
+    trackedAccountsSelect.appendChild(opt);
+  });
+  
+  if (currentTrackedAccount && storedNames.includes(currentTrackedAccount)) {
+    trackedAccountsSelect.value = currentTrackedAccount;
+  } else {
+    currentTrackedAccount = null;
+  }
+}
+
+async function fetchTransactions() {
+  if (!transactionsTableEl) return;
+  transactionsTableEl.innerHTML = '<div class="small">Loading...</div>';
+  try {
+    let url = `${API_BASE}/api/transactions?limit=200`;
+    if (currentTrackedAccount) {
+      url += `&account=${encodeURIComponent(currentTrackedAccount)}`;
+    }
+    const res = await fetch(url);
+    if (!res.ok) {
+      transactionsTableEl.textContent = 'Failed to load transactions';
+      return;
+    }
+    const data = await res.json();
+    const rows = data.transactions || [];
+    if (!rows.length) {
+      transactionsTableEl.innerHTML = '<div class="small">No transactions yet.</div>';
+      return;
+    }
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    thead.innerHTML = '<tr><th>Date</th><th>Description</th><th>Amount</th><th>Account</th><th>Category</th></tr>';
+    const tbody = document.createElement('tbody');
+    rows.forEach((r) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.date}</td><td>${(r.description||'').slice(0,80)}</td><td>${new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(r.amount)}</td><td>${r.account||''}</td><td>${r.category||''}</td>`;
+      tbody.appendChild(tr);
+    });
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    transactionsTableEl.innerHTML = '';
+    transactionsTableEl.appendChild(table);
+  } catch (err) {
+    transactionsTableEl.textContent = `Load error: ${err.message}`;
+  }
 }
 
 async function bootstrap() {
+  // Initialize DOM elements
+  tabPlanBtn = document.getElementById("tab-plan");
+  tabTrackBtn = document.getElementById("tab-track");
+  planView = document.getElementById("plan-view");
+  trackView = document.getElementById("track-view");
+  dropZone = document.getElementById("drop-zone");
+  fileInput = document.getElementById("file-input");
+  trackedAccountsSelect = document.getElementById("tracked-accounts");
+  loadAccountBtn = document.getElementById("load-account-btn");
+  deleteAccountBtn = document.getElementById("delete-account-btn");
+  addAccountBtn = document.getElementById("add-account-btn");
+  newAccountForm = document.getElementById("new-account-form");
+  newAccountBankSelect = document.getElementById("new-account-bank");
+  newAccountTypeSelect = document.getElementById("new-account-type");
+  newAccountNameInput = document.getElementById("new-account-name");
+  saveAccountBtn = document.getElementById("save-account-btn");
+  cancelAccountBtn = document.getElementById("cancel-account-btn");
+  importResultEl = document.getElementById("import-result");
+  transactionsTableEl = document.getElementById("transactions-table");
+  
+  // Load stored accounts from localStorage
+  loadStoredAccounts();
+  
   hidePlanEditor();
   initPanelInteractivity();
   setStatus("Loading models...");

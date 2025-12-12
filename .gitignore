@@ -9,5 +9,10 @@ dist/
 .idea/
 .vscode/
 .venv/
+user_data/
 user_data/scenarios.json
 user_data/plans.json
+user_data/statements/
+user_data/ledger/
+*.sqlite
+*.sqlite3

@@ -25,6 +25,7 @@ from backend.data_model import (
 from backend.engine.aggregate import aggregate_period
 from backend.engine.simulator import simulate_monthly
 from backend.engine.state import LayoutState, PlanState, ScenarioState
+from backend.statements.ingestion import import_csv_bytes, list_transactions
 
 app = Flask(__name__)
 
@@ -267,6 +268,100 @@ def save_layout_endpoint():
         return jsonify({"error": "Layout must be a list."}), 400
     layout_state.save(layout)
     return jsonify({"message": "Layout saved."})
+
+
+@app.post("/api/transactions/import")
+def import_transactions_endpoint():
+    """Upload and import a CSV statement file.
+
+    Form fields:
+      - file: multipart file
+      - account_name: optional, name of account
+      - bank: optional, bank name (citi, chase, etc.)
+      - force: optional, if "true" allows re-importing duplicate files
+    """
+    if "file" not in request.files:
+        return jsonify({"error": "Missing file"}), 400
+    file = request.files["file"]
+    filename = file.filename or "upload.csv"
+    account_name = request.form.get("account_name", "Imported Account")
+    bank = request.form.get("bank")
+    force_raw = request.form.get("force", "false")
+    force = force_raw.lower() == "true"
+    print(f"[DEBUG] /api/transactions/import force={force} (raw={force_raw})")
+    data = file.read()
+    result = import_csv_bytes(data, filename, account_name, bank=bank, force=force)
+    if result.get("error"):
+        return jsonify({"error": result["error"]}), 400
+    return jsonify({"status": "imported", "result": result})
+
+
+@app.get("/api/transactions")
+def get_transactions_endpoint():
+    try:
+        limit = int(request.args.get("limit", 100))
+    except Exception:
+        limit = 100
+    try:
+        offset = int(request.args.get("offset", 0))
+    except Exception:
+        offset = 0
+    account = request.args.get("account")
+    rows = list_transactions(limit=limit, offset=offset, account=account)
+    return jsonify({"transactions": rows})
+
+
+@app.route("/api/transactions", methods=['DELETE'])
+def delete_transactions_by_account():
+    """Delete all transactions for a specific account.
+    
+    Query params:
+      - account: account name to delete transactions for
+    """
+    account = request.args.get("account")
+    if not account:
+        return jsonify({"error": "Missing account parameter"}), 400
+    
+    try:
+        from statements.ingestion import ensure_db
+        import sqlite3
+        import os
+        
+        ensure_db()
+        db_path = os.path.join(os.path.dirname(__file__), "..", "user_data", "ledger", "transactions.sqlite")
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        
+        # Get import IDs for this account to delete attachments
+        cur.execute("SELECT import_id FROM imports WHERE account_name = ?", (account,))
+        import_ids = [row[0] for row in cur.fetchall()]
+        
+        # Delete transactions
+        cur.execute("DELETE FROM transactions WHERE account = ?", (account,))
+        deleted_count = cur.rowcount
+        
+        # Delete imports and attachments for this account
+        cur.execute("DELETE FROM imports WHERE account_name = ?", (account,))
+        cur.execute("DELETE FROM attachments WHERE import_id IN (SELECT import_id FROM imports WHERE account_name = ?)", (account,))
+        
+        conn.commit()
+        conn.close()
+        
+        # Delete attachment files from disk
+        attachments_dir = os.path.join(os.path.dirname(__file__), "..", "user_data", "statements", "attachments")
+        for import_id in import_ids:
+            try:
+                for filename in os.listdir(attachments_dir):
+                    if filename.startswith(import_id):
+                        filepath = os.path.join(attachments_dir, filename)
+                        if os.path.isfile(filepath):
+                            os.remove(filepath)
+            except Exception:
+                pass  # Continue even if file deletion fails
+        
+        return jsonify({"status": "deleted", "count": deleted_count, "account": account})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.get("/api/scenarios")
