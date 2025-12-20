@@ -57,3 +57,8 @@ Each account/cashflow row mirrors the frontend tables. Spending entries ignore p
 - Modify simulator behavior in `engine/simulator.py`; aggregate logic in `engine/aggregate.py`.
 - When changing persisted payloads, ensure backward compatibility in `state.PlanState` or migrate `user_data/`.
 - Add new endpoints/modules under `backend/` and update `run_backend.sh` if extra deps are needed.
+
+## Statement ingestion & categorization (experimental)
+- CSV ingestion lives in `backend/statements/ingestion.py` (`import_csv_bytes`).
+- Rule-based categorization lives in `backend/statements/categorizer.py`; it runs only when you pass `auto_categorize=True` or set `STATEMENT_CATEGORIZER_ENABLED=1`.
+- Env toggles: `STATEMENT_MERCHANT_MAP` (path to JSON merchant->category overrides), `STATEMENT_RULE_CONFIDENCE` (rule threshold before fallback), `STATEMENT_EXTERNAL_URL`/`STATEMENT_EXTERNAL_TOKEN` (optional Plaid/Yodlee proxy), `STATEMENT_LLM_ENABLE=1` + `STATEMENT_LLM_API_KEY`/`OPENAI_API_KEY` (optional LLM fallback).

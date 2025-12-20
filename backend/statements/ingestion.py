@@ -13,7 +13,9 @@ import json
 import os
 import sqlite3
 import uuid
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+
+from backend.statements.categorizer import CategorizerPipeline, RuleBasedCategorizer, build_categorizer_from_env
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DATA_DIR = os.path.join(BASE_DIR, "user_data")
@@ -180,7 +182,15 @@ def parse_transaction_generic(row: Dict[str, Any]) -> tuple[str, float, str, str
     return (date, amount, desc, category)
 
 
-def import_csv_bytes(file_bytes: bytes, filename: str, account_name: str, bank: str | None = None, force: bool = False) -> Dict[str, Any]:
+def import_csv_bytes(
+    file_bytes: bytes,
+    filename: str,
+    account_name: str,
+    bank: str | None = None,
+    force: bool = False,
+    auto_categorize: bool = False,
+    categorizer: Optional[CategorizerPipeline] = None,
+) -> Dict[str, Any]:
     """Import a CSV (bytes) into the ledger DB.
 
     Args:
@@ -189,6 +199,9 @@ def import_csv_bytes(file_bytes: bytes, filename: str, account_name: str, bank: 
         account_name: Account name to associate with transactions
         bank: Bank name (used to select parser: "citi", "chase", etc.)
         force: If True, bypass deduplication check and re-import file
+        auto_categorize: If True, categorize rows missing a category using the configured categorizer
+        categorizer: Optional categorizer pipeline; if not provided and auto_categorize=True,
+                    build_categorizer_from_env() is used.
 
     Returns summary dict with import_id and counts.
     """
@@ -237,6 +250,11 @@ def import_csv_bytes(file_bytes: bytes, filename: str, account_name: str, bank: 
     parsed = 0
     duplicate = 0
     errors = 0
+
+    if auto_categorize and categorizer is None:
+        categorizer = build_categorizer_from_env() or CategorizerPipeline(primary=RuleBasedCategorizer())
+    use_categorizer = auto_categorize and categorizer is not None
+
     for r in rows:
         try:
             result = parser(r)
@@ -245,13 +263,42 @@ def import_csv_bytes(file_bytes: bytes, filename: str, account_name: str, bank: 
                 continue
             
             date, amount, desc, category = result
+            merchant = (r.get("Merchant") or r.get("merchant") or "").strip()
+            confidence = None
+            is_income = 1 if amount > 0 else 0
+
+            if use_categorizer and (not category or category.strip() == ""):
+                try:
+                    cat_result = categorizer.categorize(description=desc, amount=amount, merchant=merchant or None, mcc=r.get("MCC"))
+                    if cat_result:
+                        category = cat_result.category or category
+                        merchant = cat_result.merchant or merchant
+                        confidence = cat_result.confidence
+                except Exception:
+                    # Categorizer failures should not stop ingestion
+                    pass
 
             txnid = transaction_hash(date, amount, desc, account_name)
             raw_json = json.dumps(r, ensure_ascii=False)
             try:
                 cur.execute(
-                    "INSERT INTO transactions(txn_id, import_id, date, amount, description, account, category, raw_json, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                    (txnid, import_id, date, amount, desc, account_name, category, raw_json, datetime.datetime.utcnow(), datetime.datetime.utcnow()),
+                    "INSERT INTO transactions(txn_id, import_id, date, amount, description, merchant, category, account, currency, is_income, confidence, raw_json, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        txnid,
+                        import_id,
+                        date,
+                        amount,
+                        desc,
+                        merchant or None,
+                        category,
+                        account_name,
+                        "USD",
+                        is_income,
+                        confidence,
+                        raw_json,
+                        datetime.datetime.utcnow(),
+                        datetime.datetime.utcnow(),
+                    ),
                 )
                 parsed += 1
             except sqlite3.IntegrityError:

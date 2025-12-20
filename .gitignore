@@ -14,5 +14,6 @@ user_data/scenarios.json
 user_data/plans.json
 user_data/statements/
 user_data/ledger/
+spending_classifier/statements/
 *.sqlite
 *.sqlite3
