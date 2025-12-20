@@ -1351,6 +1351,26 @@ function attachEventListeners() {
       }
     });
   }
+  // Summary controls
+  const summaryRunBtn = document.getElementById('summary-run');
+  if (summaryRunBtn) {
+    console.log('[DEBUG] binding summary-run button');
+    summaryRunBtn.addEventListener('click', () => {
+      console.log('[DEBUG] summary-run clicked');
+      fetchSummary();
+    });
+  }
+  const summaryPeriod = document.getElementById('summary-period');
+  const summaryMonth = document.getElementById('summary-month');
+  if (summaryPeriod && summaryMonth) {
+    summaryPeriod.addEventListener('change', (e)=>{
+      if (e.target.value === 'yearly') {
+        summaryMonth.style.display = 'none';
+      } else {
+        summaryMonth.style.display = '';
+      }
+    });
+  }
 }
 
 function showPlanView() {
@@ -1587,8 +1607,107 @@ async function fetchTransactions() {
     table.appendChild(tbody);
     transactionsTableEl.innerHTML = '';
     transactionsTableEl.appendChild(table);
+    // Populate summary controls (derive years from loaded transactions)
+    try {
+      if (typeof buildSummaryControls === 'function') buildSummaryControls(rows);
+    } catch (e) {
+      console.warn('Summary controls build failed', e);
+    }
   } catch (err) {
     transactionsTableEl.textContent = `Load error: ${err.message}`;
+  }
+}
+
+function extractYearFromDateString(ds) {
+  if (!ds) return null;
+  const s = String(ds).trim();
+  if (s.includes('/')) {
+    const parts = s.split('/');
+    if (parts.length >= 3) {
+      const y = Number(parts[2]);
+      return Number.isFinite(y) ? y : null;
+    }
+  }
+  const dt = new Date(s);
+  if (!isNaN(dt.getFullYear())) return dt.getFullYear();
+  return null;
+}
+
+function buildSummaryControls(rows) {
+  const yearSelect = document.getElementById('summary-year');
+  if (!yearSelect) return;
+  const years = new Set();
+  (rows || []).forEach(r => {
+    const y = extractYearFromDateString(r.date || r.Date || '');
+    if (y) years.add(y);
+  });
+  const sorted = Array.from(years).sort((a,b)=>b-a);
+  yearSelect.innerHTML = '';
+  if (!sorted.length) {
+    const opt = document.createElement('option'); opt.value=''; opt.textContent='--'; yearSelect.appendChild(opt);
+    return;
+  }
+  sorted.forEach(y=>{
+    const opt = document.createElement('option'); opt.value = String(y); opt.textContent = String(y); yearSelect.appendChild(opt);
+  });
+  // Default to the most recent year
+  yearSelect.selectedIndex = 0;
+}
+
+async function fetchSummary() {
+  console.log('[DEBUG] fetchSummary start', { currentTrackedAccount });
+  const period = document.getElementById('summary-period')?.value || 'monthly';
+  let year = Number(document.getElementById('summary-year')?.value || 0) || null;
+  let month = Number(document.getElementById('summary-month')?.value || 0) || null;
+  // If year not selected, try to pick the first option from the year select (most recent)
+  if (!year) {
+    const ys = document.getElementById('summary-year');
+    if (ys && ys.options && ys.options.length) {
+      const v = ys.options[ys.selectedIndex]?.value;
+      year = Number(v) || null;
+    }
+  }
+  // Default month to current month if not set
+  if (!month) {
+    const sm = document.getElementById('summary-month');
+    if (sm && sm.value) {
+      month = Number(sm.value) || (new Date()).getMonth()+1;
+    } else {
+      month = (new Date()).getMonth()+1;
+    }
+  }
+  if (!currentTrackedAccount) {
+    alert('Select an account first');
+    return;
+  }
+  if (period === 'monthly' && (!year || !month)) {
+    alert('Choose month and year');
+    return;
+  }
+  if (period === 'yearly' && !year) {
+    alert('Choose year');
+    return;
+  }
+  const params = new URLSearchParams();
+  params.set('period', period);
+  if (year) params.set('year', String(year));
+  if (month && period === 'monthly') params.set('month', String(month));
+  params.set('account', currentTrackedAccount);
+  try {
+    console.log('[DEBUG] calling summary API', params.toString());
+    const res = await fetch(`${API_BASE}/api/transactions/summary?${params.toString()}`);
+    if (!res.ok) {
+      const body = await res.json().catch(()=>({}));
+      document.getElementById('summary-result').textContent = `Summary failed: ${body.error||res.statusText}`;
+      return;
+    }
+    const data = await res.json();
+    const out = document.getElementById('summary-result');
+    const spending = data.total_spending_abs ?? Math.abs(data.total_spending || 0);
+    const income = data.total_income ?? 0;
+    out.innerHTML = `<div class="import-success">Spending: <strong>${currencyFormat.format(spending)}</strong> — Income: <strong>${currencyFormat.format(income)}</strong> — Transactions: <strong>${data.transaction_count}</strong></div>`;
+  } catch (err) {
+    document.getElementById('summary-result').textContent = `Summary error: ${err.message}`;
   }
 }
 

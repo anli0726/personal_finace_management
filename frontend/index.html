@@ -200,7 +200,35 @@
           </div>
           <div id="import-result" class="import-result"></div>
         </div>
-        
+        <div class="plan-card" id="summary-card">
+          <h3>Spending Summary</h3>
+          <p class="plan-note">Show spending totals (uses negative amounts) by month or year.</p>
+          <div style="display:flex; gap:0.5rem; align-items:center; margin-top:0.5rem;">
+            <label for="summary-period" style="min-width:70px;">Period</label>
+            <select id="summary-period" style="padding:0.35rem; border-radius:0.4rem;">
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+            <select id="summary-month" style="padding:0.35rem; border-radius:0.4rem;">
+              <option value="1">Jan</option>
+              <option value="2">Feb</option>
+              <option value="3">Mar</option>
+              <option value="4">Apr</option>
+              <option value="5">May</option>
+              <option value="6">Jun</option>
+              <option value="7">Jul</option>
+              <option value="8">Aug</option>
+              <option value="9">Sep</option>
+              <option value="10">Oct</option>
+              <option value="11">Nov</option>
+              <option value="12">Dec</option>
+            </select>
+            <select id="summary-year" style="padding:0.35rem; border-radius:0.4rem; min-width:100px;"></select>
+            <button id="summary-run" class="primary-btn" type="button">Show</button>
+          </div>
+          <div id="summary-result" style="margin-top:0.75rem;"></div>
+        </div>
+
         <div class="panel-header">
           <h3>Recent Transactions</h3>
         </div>

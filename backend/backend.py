@@ -26,6 +26,7 @@ from backend.engine.aggregate import aggregate_period
 from backend.engine.simulator import simulate_monthly
 from backend.engine.state import LayoutState, PlanState, ScenarioState
 from backend.statements.ingestion import import_csv_bytes, list_transactions
+import datetime as _dt
 
 app = Flask(__name__)
 
@@ -309,6 +310,95 @@ def get_transactions_endpoint():
     account = request.args.get("account")
     rows = list_transactions(limit=limit, offset=offset, account=account)
     return jsonify({"transactions": rows})
+
+
+@app.get("/api/transactions/summary")
+def transactions_summary():
+    """Return aggregated spending and income for a period.
+
+    Query params:
+      - period: 'monthly' or 'yearly' (defaults to 'monthly')
+      - year: integer year (required for monthly/yearly)
+      - month: integer month (1-12) required for monthly
+      - account: optional account name to filter
+    """
+    period = (request.args.get("period") or "monthly").lower()
+    try:
+        year = int(request.args.get("year")) if request.args.get("year") else None
+    except Exception:
+        year = None
+    try:
+        month = int(request.args.get("month")) if request.args.get("month") else None
+    except Exception:
+        month = None
+    account = request.args.get("account")
+
+    # Fetch all transactions for the account (limit high for simplicity)
+    rows = list_transactions(limit=1000000, offset=0, account=account)
+
+    def parse_year_month(date_str: str):
+        # try common formats
+        if not date_str:
+            return None, None
+        ds = str(date_str).strip()
+        # mm/dd/YYYY
+        try:
+            if "/" in ds:
+                parts = ds.split("/")
+                if len(parts) >= 3:
+                    m = int(parts[0]); d = int(parts[1]); y = int(parts[2])
+                    return y, m
+            # ISO-ish
+            dt = _dt.datetime.fromisoformat(ds)
+            return dt.year, dt.month
+        except Exception:
+            try:
+                dt = _dt.datetime.strptime(ds, "%m/%d/%y")
+                return dt.year, dt.month
+            except Exception:
+                return None, None
+
+    total_spending = 0.0
+    total_income = 0.0
+    count = 0
+    for r in rows:
+        y, m = parse_year_month(r.get("date") or r.get("Date") or "")
+        if period.startswith("monthly"):
+            if year is None or month is None:
+                continue
+            if y != year or m != month:
+                continue
+        elif period.startswith("year"):
+            if year is None:
+                continue
+            if y != year:
+                continue
+
+        amt = 0.0
+        try:
+            amt = float(r.get("amount") if r.get("amount") is not None else r.get("Amount") or 0.0)
+        except Exception:
+            try:
+                amt = float(r.get("amount", 0))
+            except Exception:
+                amt = 0.0
+
+        if amt < 0:
+            total_spending += amt
+        else:
+            total_income += amt
+        count += 1
+
+    return jsonify({
+        "period": period,
+        "year": year,
+        "month": month,
+        "account": account,
+        "total_spending": total_spending,
+        "total_spending_abs": -total_spending,
+        "total_income": total_income,
+        "transaction_count": count,
+    })
 
 
 @app.route("/api/transactions", methods=['DELETE'])
