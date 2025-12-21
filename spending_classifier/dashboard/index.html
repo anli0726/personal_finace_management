@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Statement Description Summary</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Spending Classifier</p>
+          <h1>Statement Description Summary</h1>
+          <p class="subtitle">
+            Clustered by 75% similarity. Select a root description to inspect
+            its family.
+          </p>
+        </div>
+        <div class="stats">
+          <div class="stat">
+            <span class="stat-label">Statement files</span>
+            <span id="stat-files" class="stat-value">-</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Transactions</span>
+            <span id="stat-txns" class="stat-value">-</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Unique descriptions</span>
+            <span id="stat-unique" class="stat-value">-</span>
+          </div>
+        </div>
+      </header>
+
+      <section class="content">
+        <aside class="panel">
+          <div class="panel-header">
+            <h2>Root Descriptions</h2>
+            <input id="search" type="search" placeholder="Filter roots..." />
+          </div>
+          <div id="root-list" class="root-list"></div>
+        </aside>
+
+        <main class="panel detail">
+          <div class="panel-header">
+            <div>
+              <h2 id="detail-title">Select a root description</h2>
+              <p id="detail-subtitle" class="subtitle">Select a root to see summary and transactions.</p>
+            </div>
+            <div class="panel-controls">
+              <label class="filter-label" for="year-filter">Year</label>
+              <select id="year-filter"></select>
+            </div>
+          </div>
+
+          <div class="detail-grid">
+            <section class="summary-section">
+              <h3>Summary</h3>
+              <div class="summary-grid">
+                <div class="summary-card">
+                  <span class="summary-label">Total spending</span>
+                  <span id="summary-spending" class="summary-value">$0</span>
+                </div>
+                <div class="summary-card">
+                  <span class="summary-label">Transactions</span>
+                  <span id="summary-count" class="summary-value">0</span>
+                </div>
+                <div class="summary-card">
+                  <span class="summary-label">Avg per transaction</span>
+                  <span id="summary-average" class="summary-value">$0</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="summary-section">
+              <h3>Custom Groups</h3>
+              <div class="group-controls">
+                <input id="group-name" type="text" placeholder="Group name" />
+                <button id="assign-group" type="button">Assign to selected</button>
+                <button id="clear-group" type="button" class="ghost">Clear selected</button>
+              </div>
+              <div id="group-summary" class="group-summary">No groups yet.</div>
+            </section>
+
+            <section class="table-card">
+              <h3>Transactions</h3>
+              <table>
+                <thead>
+                  <tr>
+                    <th class="checkbox-cell">
+                      <input id="select-all" type="checkbox" />
+                    </th>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Group</th>
+                    <th class="num">Amount</th>
+                    <th class="num">Spending</th>
+                  </tr>
+                </thead>
+                <tbody id="detail-table"></tbody>
+              </table>
+            </section>
+          </div>
+        </main>
+      </section>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
